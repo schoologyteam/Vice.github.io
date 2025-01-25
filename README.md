@@ -2,11 +2,14 @@
 Open source engine for [Grand Theft Auto: Vice City](https://www.rockstargames.com/games/vicecity).
 
 Features:
-* Read GTA format files: IMG, DIR, DFF, TXD
+* Read GTA Vice City format files: IMG, DIR, DFF, TXD
 * Render: Frustum culling
+* Render city
 
-## Build 
-Open `openvice.sln` solution in **Microsoft Visual Studio 2019** and click **Build** -> **Build Solution**.
+## Build
+1. Download and build DirectXTex
+2. Download DirectXMath
+3. Open `openvice.sln` solution in Microsoft Visual Studio 2019 and click `Build` -> `Build Solution`.
 
 ## System requirements
 * Windows Vista or higher
