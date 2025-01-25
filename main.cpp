@@ -19,8 +19,8 @@
 #include "Model.h"
 
 #define PROJECT_NAME "openvice"
-#define WINDOW_WIDTH 1024
-#define WINDOW_HEIGHT 768
+#define WINDOW_WIDTH 1920
+#define WINDOW_HEIGHT 1080
 #define WINDOW_TITLE L"openvice"
 
 int frameCount = 0;
@@ -267,6 +267,31 @@ int LoadFileDFFWithName(IMG* pImgLoader, DXRender* render, char *name, int model
 	return 0;
 }
 
+inline float Distance(XMVECTOR v1, XMVECTOR v2)
+{
+	return XMVectorGetX(XMVector3Length(XMVectorSubtract(v1, v2)));
+}
+inline float DistanceSquared(XMVECTOR v1, XMVECTOR v2)
+{
+	return XMVectorGetX(XMVector3LengthSq(XMVectorSubtract(v1, v2)));
+}
+
+struct rend {
+	int id;
+	int dist;
+
+	struct mapItem obinfo;
+};
+
+std::vector<struct rend> gNeedRender;
+
+// Comparator function
+bool comp(const struct rend left, const struct rend right) {
+	return left.dist > right.dist;
+}
+
+#define MAX_RENDER_DISTANCE 100
+
 void RenderScene(DXRender *render, Camera *camera)
 {
 	g_frustum.ConstructFrustum(400.0f, camera->GetProjection(), camera->GetView());
@@ -278,7 +303,6 @@ void RenderScene(DXRender *render, Camera *camera)
 	for (int i = 0; i < g_ipl.size(); i++) {
 		int count = g_ipl[i]->GetCountObjects();
 
-		// Render not transparent objects
 		for (int j = 0; j < count; j++) {
 			struct mapItem objectInfo = g_ipl[i]->GetItem(j);
 
@@ -286,60 +310,41 @@ void RenderScene(DXRender *render, Camera *camera)
 			float y = objectInfo.y;
 			float z = objectInfo.z;
 
-			bool renderModel = g_frustum.CheckSphere(x, y, z, 50.0f);
+			XMVECTOR cameraPos = camera->GetPosition();
 
-			if (renderModel) {
-			
-				for (int m = 0; m < g_models.size(); m++) {
-					Model* model = g_models[m];
+			float distance = DistanceSquared(cameraPos, XMVectorSet(x, y, z, 0));
 
-					if (model->IsAlpha() == true) {
-						continue;
-					}
-
-					if (objectInfo.id == model->GetId()) {
-						model->SetPosition(
-							objectInfo.x, objectInfo.y, objectInfo.z,
-							objectInfo.scale[0], objectInfo.scale[1], objectInfo.scale[2],
-							objectInfo.rotation[0], objectInfo.rotation[1], objectInfo.rotation[2], objectInfo.rotation[3]
-						);
-						model->Render(render, camera);
-
-						renderCount++;
-					}
-				}
+			if ((int)distance < MAX_RENDER_DISTANCE * 1000) {
+				struct rend rr;
+				rr.id = objectInfo.id;
+				rr.dist = (int)distance;
+				rr.obinfo = objectInfo;
+				gNeedRender.push_back(rr);
 			}
 		}
+	}
 
-		// Render transparent objects
-		for (int j = 0; j < count; j++) {
-			struct mapItem objectInfo = g_ipl[i]->GetItem(j);
+	// Sort vector in order
+	std::sort(gNeedRender.begin(), gNeedRender.end(), comp);
 
-			float x = objectInfo.x;
-			float y = objectInfo.y;
-			float z = objectInfo.z;
+	for (int m = 0; m < g_models.size(); m++) {
+		Model* model = g_models[m];
 
-			bool renderModel = g_frustum.CheckSphere(x, y, z, 50.0f);
+		for (int i = 0; i < gNeedRender.size(); i++) {
+			struct mapItem objectInfo = gNeedRender[i].obinfo;
 
-			if (renderModel) {
+			if (gNeedRender[i].id == model->GetId()) {
+				bool renderModel = g_frustum.CheckSphere(objectInfo.x, objectInfo.y, objectInfo.z, 50.0f);
 
-				for (int m = 0; m < g_models.size(); m++) {
-					Model* model = g_models[m];
+				if (renderModel) {
+					model->SetPosition(
+						objectInfo.x, objectInfo.y, objectInfo.z,
+						objectInfo.scale[0], objectInfo.scale[1], objectInfo.scale[2],
+						objectInfo.rotation[0], objectInfo.rotation[1], objectInfo.rotation[2], objectInfo.rotation[3]
+					);
+					model->Render(render, camera);
 
-					if (model->IsAlpha() == false) {
-						continue;
-					}
-
-					if (objectInfo.id == model->GetId()) {
-						model->SetPosition(
-							objectInfo.x, objectInfo.y, objectInfo.z,
-							objectInfo.scale[0], objectInfo.scale[1], objectInfo.scale[2],
-							objectInfo.rotation[0], objectInfo.rotation[1], objectInfo.rotation[2], objectInfo.rotation[3]
-						);
-						model->Render(render, camera);
-
-						renderCount++;
-					}
+					renderCount++;
 				}
 			}
 		}
@@ -348,11 +353,13 @@ void RenderScene(DXRender *render, Camera *camera)
 	printf("[Info] Rendered meshes: %d\n", renderCount);
 
 	render->RenderEnd();
+
+	gNeedRender.clear();
 }
 
 int WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow)
 {
-	bool vsync = false;
+	bool vsync = true;
 
 	if (!DirectX::XMVerifyCPUSupport()) {
 		MessageBox(NULL, L"You CPU doesn't support DirectXMath", L"Error", MB_OK);
