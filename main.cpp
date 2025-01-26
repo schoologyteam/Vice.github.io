@@ -843,7 +843,12 @@ int main(int argc, char **argv)
 	quad->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, 3));
 
 	osg::ref_ptr<osg::Geode> rootTri = new osg::Geode;
+	osg::ref_ptr<osg::MatrixTransform> transform1 = new osg::MatrixTransform;
+	transform1->setMatrix(osg::Matrix::translate(0, 0, 0));
+	transform1->addChild(rootTri);
+	
 	rootTri->addDrawable(quad);
+
 	root->addChild(rootTri);
 
 
