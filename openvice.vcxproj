@@ -95,12 +95,12 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_XM_SSE_INTRINSICS_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp14</LanguageStandard>
       <CompileAs>CompileAsCpp</CompileAs>
-      <AdditionalIncludeDirectories>C:\Users\misha\Documents\GitHub\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\misha\Documents\GitHub\DirectXTex\DirectXTex;C:\Users\misha\Downloads\osg-build\include;C:\Users\misha\Downloads\OpenSceneGraph-master\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>DirectXTex.lib;d3d11.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\Users\misha\Documents\GitHub\DirectXTex\DirectXTex\Bin\Desktop_2019\x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <SubSystem>Console</SubSystem>
+      <AdditionalDependencies>OpenThreadsd.lib;osgd.lib;osgDBd.lib;osgGAd.lib;osgTextd.lib;osgUtild.lib;osgViewerd.lib;DirectXTex.lib;d3d11.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\misha\Documents\GitHub\DirectXTex\DirectXTex\Bin\Desktop_2019\x64\Debug;C:\Users\misha\Downloads\osg-build\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
