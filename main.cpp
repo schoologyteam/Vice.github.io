@@ -482,7 +482,6 @@ osg::Group* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 {
 	// checkOpenGLError("loadDFF");
 
-
 	/* Skip LOD files */
 	if (strstr(name, "LOD") != NULL) {
 		return NULL;
@@ -500,21 +499,15 @@ osg::Group* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 	char* fileBuffer = (char*)imgLoader->GetFileById(fileId);
 
 
-	osg::Group* root = new osg::Group;
+	osg::Group *root = new osg::Group;
 
 
 	Clump* clump = new Clump();
 	clump->Read(fileBuffer);
 
-	/*Model* model = new Model();
-	model->SetId(modelId);
-	model->SetName(name);*/
-
-
-
 	for (uint32_t index = 0; index < clump->m_numGeometries; index++) {
 		
-		osg::Geode* root2 = new osg::Geode;
+		osg::ref_ptr<osg::Geode> geode = new osg::Geode;
 
 		std::vector<ModelMaterial> materIndex;
 
@@ -554,17 +547,13 @@ osg::Group* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 		/* Loop for every mesh */
 		for (uint32_t i = 0; i < clump->GetGeometryList()[index]->splits.size(); i++) {
 
-			osg::Geometry* quad = new osg::Geometry;
+			osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry;
 
-			osg::Vec3Array* vertices = new osg::Vec3Array;
-			osg::ref_ptr <osg::Vec2Array> texcoords = new osg::Vec2Array;
-			osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array;
+			osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
+			osg::ref_ptr<osg::Vec2Array> texcoords = new osg::Vec2Array;
+			// osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array;
 
 			int v_count = clump->GetGeometryList()[index]->vertexCount;
-
-			/* Save to data for create vertex buffer (x,y,z tx,ty) */
-			// TODO: Free memory
-			//float* meshVertexData = (float*)malloc(sizeof(float) * v_count * 5);
 
 			for (int v = 0; v < v_count; v++) {
 				float x = clump->GetGeometryList()[index]->vertices[v * 3 + 0];
@@ -576,7 +565,7 @@ osg::Group* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 					float ny = clump->GetGeometryList()[index]->normals[v * 3 + 1];
 					float nz = clump->GetGeometryList()[index]->normals[v * 3 + 2];
 
-					//normals->push_back(osg::Vec3(nx, ny, nz));
+					// normals->push_back(osg::Vec3(nx, ny, nz));
 				}
 				
 
@@ -597,23 +586,10 @@ osg::Group* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				 * Z – up/down direction
 				 * @see https://gtamods.com/wiki/Map_system
 				*/
-
 				vertices->push_back(osg::Vec3(x, y, z));
-				
-
-				/*meshVertexData[v * 5 + 0] = x;
-				meshVertexData[v * 5 + 1] = z;
-				meshVertexData[v * 5 + 2] = y;*/
-
-
-
-				//meshVertexData[v * 5 + 3] = tx;
-				//meshVertexData[v * 5 + 4] = ty;
 			}
 
-			osg::DrawElementsUInt* indices = new osg::DrawElementsUInt(
-
-
+			osg::ref_ptr<osg::DrawElementsUInt> indices = new osg::DrawElementsUInt(
 				clump->GetGeometryList()[index]->faceType == FACETYPE_STRIP
 				? osg::PrimitiveSet::TRIANGLE_STRIP // D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP
 				: osg::PrimitiveSet::TRIANGLES // D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST
@@ -626,12 +602,12 @@ osg::Group* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 			memcpy((void*)indices->getDataPointer(), (unsigned int*)clump->GetGeometryList()[index]->splits[i].indices,
 				sizeof(unsigned int) * clump->GetGeometryList()[index]->splits[i].m_numIndices);
 
-			quad->setVertexArray(vertices);
-			quad->setTexCoordArray(0, texcoords);
+			geometry->setVertexArray(vertices);
+			geometry->setTexCoordArray(0, texcoords);
 			//if (clump->GetGeometryList()[index]->flags & FLAGS_NORMALS) {
 			//	quad->setNormalBinding(osg::Geometry::BIND_OVERALL);
 			//}
-			quad->addPrimitiveSet(indices);
+			geometry->addPrimitiveSet(indices);
 
 			//osg::Texture2D *texture = new osg::Texture2D;
 			//osg::Image *image = osgDB::readImageFile("texture-test2.bmp");
@@ -700,21 +676,21 @@ osg::Group* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				);*/
 			}
 
-			gtexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-			gtexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+			// gtexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+			// gtexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
 
 			// Create a StateSet to apply the texture
 
 			if (clump->GetGeometryList()[index]->flags & FLAGS_TEXTURED) {
-				osg::ref_ptr<osg::StateSet> stateSet = root2->getOrCreateStateSet();
+				osg::ref_ptr<osg::StateSet> stateSet = geode->getOrCreateStateSet();
 				stateSet->setTextureAttributeAndModes(0, gtexture, osg::StateAttribute::ON);
-				stateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF); // Disable lighting for this example
+				// stateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF); // Disable lighting for this example
 			}
-			root2->addDrawable(quad);		
+			geode->addDrawable(geometry);		
 			//root2->getOrCreateStateSet()->setTextureAttributeAndModes(0, gtexture);
 		}
 
-		root->addChild(root2);
+		root->addChild(geode);
 	}
 
 	
