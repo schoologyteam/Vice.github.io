@@ -449,7 +449,7 @@ osg::Geode* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 
 	/* Skip LOD files */
 	if (strstr(name, "LOD") != NULL) {
-		return 0;
+		return NULL;
 	}
 
 	char result_name[MAX_LENGTH_FILENAME + 4];
@@ -464,55 +464,7 @@ osg::Geode* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 	char* fileBuffer = (char*)imgLoader->GetFileById(fileId);
 
 
-
-
-
-
-	
-	/*vertices->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
-	vertices->push_back(osg::Vec3(1.0f, 0.0f, 0.0f));
-	vertices->push_back(osg::Vec3(1.0f, 0.0f, 1.0f));*/
-
-	//osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array;
-	//normals->push_back(osg::Vec3(0.0f, -1.0f, 0.0f));
-
-	//osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
-	/*colors->push_back(osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
-	colors->push_back(osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f));
-	colors->push_back(osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));*/
-
-
-	/*quad->setVertexArray(vertices.get());*/
-
-	//quad->setNormalArray(normals.get());
-	//quad->setNormalBinding(osg::Geometry::BIND_OVERALL);
-
-	/*quad->setColorArray(colors.get());
-	quad->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
-
-	quad->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, 3));*/
-
-
-	/* Skip LOD files */
-	//if (strstr(name, "LOD") != NULL) {
-	//	return 0;
-	//}
-
-	//char result_name[MAX_LENGTH_FILENAME + 4];
-	////strcpy(result_name, name);
-	//strcat(result_name, ".dff");
-
-	//int fileId = pImgLoader->GetFileIndexByName(result_name);
-	//if (fileId == -1) {
-	//	return NULL;
-	//}
-
-
-
-
 	osg::Geode* root = new osg::Geode;
-	
-
 
 
 	Clump* clump = new Clump();
@@ -605,7 +557,7 @@ osg::Geode* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				 * @see https://gtamods.com/wiki/Map_system
 				*/
 
-				vertices->push_back(osg::Vec3(x, z, y));
+				vertices->push_back(osg::Vec3(x, y, z));
 				
 
 				countVertices += 3;
@@ -641,9 +593,9 @@ osg::Geode* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 
 
 			// wireframe
-			//osg::ref_ptr<osg::PolygonMode> pm = new osg::PolygonMode;
-			//pm->setMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE);
-			//quad->getOrCreateStateSet()->setAttribute(pm.get());
+			osg::ref_ptr<osg::PolygonMode> pm = new osg::PolygonMode;
+			pm->setMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE);
+			quad->getOrCreateStateSet()->setAttribute(pm.get());
 
 
 
@@ -854,7 +806,7 @@ int main(int argc, char **argv)
 			
 
 			osg::ref_ptr<osg::MatrixTransform> transform1 = new osg::MatrixTransform;
-			transform1->setMatrix(osg::Matrix::translate(x, y, z));
+			transform1->setMatrix(osg::Matrix::translate(x, z, y)); // X Z Y
 			transform1->addChild(rootq);
 
 			root->addChild(transform1);
@@ -866,8 +818,33 @@ int main(int argc, char **argv)
 	//osg::Geode* rootq = loadDFF(imgLoader, 200);
 
 
+	osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
+	vertices->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
+	vertices->push_back(osg::Vec3(1.0f, 0.0f, 0.0f));
+	vertices->push_back(osg::Vec3(1.0f, 0.0f, 1.0f));
 
-	
+	osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array;
+	normals->push_back(osg::Vec3(0.0f, -1.0f, 0.0f));
+
+	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+	colors->push_back(osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
+	colors->push_back(osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f));
+	colors->push_back(osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
+
+	osg::ref_ptr<osg::Geometry> quad = new osg::Geometry;
+	quad->setVertexArray(vertices.get());
+
+	quad->setNormalArray(normals.get());
+	quad->setNormalBinding(osg::Geometry::BIND_OVERALL);
+
+	quad->setColorArray(colors.get());
+	quad->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+
+	quad->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, 3));
+
+	osg::ref_ptr<osg::Geode> rootTri = new osg::Geode;
+	rootTri->addDrawable(quad);
+	root->addChild(rootTri);
 
 
 	osgViewer::Viewer viewer;
