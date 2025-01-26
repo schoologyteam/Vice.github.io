@@ -27,6 +27,8 @@ int frameCount = 0;
 Frustum g_frustum;
 
 #include <osg/Texture2D>
+#include <osg/MatrixTransform>
+#include <osgDB/ReadFile>
 
 #include <osg/ShapeDrawable>
 #include <osgViewer/Viewer>
@@ -36,7 +38,8 @@ Frustum g_frustum;
 
 #include "ReaderWriterDDS.cpp"
 
-
+osg::Texture2D* gtexture = NULL;
+osg::Image* gimage = NULL;
 
 struct GameMaterial {
 	char name[MAX_LENGTH_FILENAME]; /* without extension ".TXD" */
@@ -165,22 +168,25 @@ void LoadAllTexturesFromTXDFile(IMG *pImgLoader, const char *filename)
 
 		
 		// manual create DDS file from buffer
-		char *fileBuf = manualCreateDds(m.source, len, m.width, m.height, m.dxtCompression, m.depth);
+		//char *fileBuf = manualCreateDds(m.source, len, m.width, m.height, m.dxtCompression, m.depth);
 
 		// convert buffer to istream
 		/*int size_t = sizeof(struct DDS_File) + m.size;
 		std::vector<uint8_t> data(fileBuf[0], fileBuf[len]);
 		imemstream stream(reinterpret_cast<const char*>(data.data()), data.size());*/
-		membuf sbuf(fileBuf, fileBuf + sizeof(fileBuf));
-		std::istream in(&sbuf);
+		
+		
+		
+		//membuf sbuf(fileBuf, fileBuf + sizeof(fileBuf));
+		//std::istream in(&sbuf);
 
 		// load dds file from istream
-		osg::Image *image = ReadDDSFile(in, false);
-		if (image == NULL) {
-			printf("image = NULL \n");
-		}
+		//osg::Image *image = ReadDDSFile(in, false);
+		//if (image == NULL) {
+		//	printf("image = NULL \n");
+		//}
 
-		m.image = image;
+		//m.image = image;
 
 		g_Textures.push_back(m);
 	}
@@ -444,8 +450,38 @@ void RenderScene(DXRender *render, Camera *camera)
 	gNeedRender.clear();
 }
 
-osg::Geode* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
+#include <iostream>
+#include <GL/gl.h>
+
+// Function to check for OpenGL errors
+void checkOpenGLError(const std::string& functionName) {
+	GLenum error = glGetError();
+	while (error != GL_NO_ERROR) {
+		switch (error) {
+		case GL_INVALID_ENUM:
+			std::cerr << "OpenGL Error in " << functionName << ": GL_INVALID_ENUM" << std::endl;
+			break;
+		case GL_INVALID_VALUE:
+			std::cerr << "OpenGL Error in " << functionName << ": GL_INVALID_VALUE" << std::endl;
+			break;
+		case GL_INVALID_OPERATION:
+			std::cerr << "OpenGL Error in " << functionName << ": GL_INVALID_OPERATION" << std::endl;
+			break;
+		case GL_OUT_OF_MEMORY:
+			std::cerr << "OpenGL Error in " << functionName << ": GL_OUT_OF_MEMORY" << std::endl;
+			break;
+		default:
+			std::cerr << "OpenGL Error in " << functionName << ": Unknown error " << error << std::endl;
+			break;
+		}
+		error = glGetError(); // Check for more errors
+	}
+}
+
+osg::Group* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 {
+	// checkOpenGLError("loadDFF");
+
 
 	/* Skip LOD files */
 	if (strstr(name, "LOD") != NULL) {
@@ -464,7 +500,7 @@ osg::Geode* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 	char* fileBuffer = (char*)imgLoader->GetFileById(fileId);
 
 
-	osg::Geode* root = new osg::Geode;
+	osg::Group* root = new osg::Group;
 
 
 	Clump* clump = new Clump();
@@ -474,9 +510,7 @@ osg::Geode* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 	model->SetId(modelId);
 	model->SetName(name);*/
 
-	int countVertices = 0;
 
-	
 
 	for (uint32_t index = 0; index < clump->m_numGeometries; index++) {
 		
@@ -523,25 +557,32 @@ osg::Geode* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 			osg::Geometry* quad = new osg::Geometry;
 
 			osg::Vec3Array* vertices = new osg::Vec3Array;
-			osg::Vec2Array* texcoords = new osg::Vec2Array;
+			osg::ref_ptr <osg::Vec2Array> texcoords = new osg::Vec2Array;
+			osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array;
 
 			int v_count = clump->GetGeometryList()[index]->vertexCount;
 
 			/* Save to data for create vertex buffer (x,y,z tx,ty) */
 			// TODO: Free memory
-			float* meshVertexData = (float*)malloc(sizeof(float) * v_count * 5);
+			//float* meshVertexData = (float*)malloc(sizeof(float) * v_count * 5);
 
 			for (int v = 0; v < v_count; v++) {
 				float x = clump->GetGeometryList()[index]->vertices[v * 3 + 0];
 				float y = clump->GetGeometryList()[index]->vertices[v * 3 + 1];
 				float z = clump->GetGeometryList()[index]->vertices[v * 3 + 2];
 
+				if (clump->GetGeometryList()[index]->flags & FLAGS_NORMALS) {
+					float nx = clump->GetGeometryList()[index]->normals[v * 3 + 0];
+					float ny = clump->GetGeometryList()[index]->normals[v * 3 + 1];
+					float nz = clump->GetGeometryList()[index]->normals[v * 3 + 2];
+
+					//normals->push_back(osg::Vec3(nx, ny, nz));
+				}
+				
+
 				float tx = 0.0f;
 				float ty = 0.0f;
 				if (clump->GetGeometryList()[index]->flags & FLAGS_TEXTURED) {
-
-					
-
 					tx = clump->GetGeometryList()[index]->texCoords[0][v * 2 + 0];
 					ty = clump->GetGeometryList()[index]->texCoords[0][v * 2 + 1];
 
@@ -560,7 +601,6 @@ osg::Geode* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				vertices->push_back(osg::Vec3(x, y, z));
 				
 
-				countVertices += 3;
 				/*meshVertexData[v * 5 + 0] = x;
 				meshVertexData[v * 5 + 1] = z;
 				meshVertexData[v * 5 + 2] = y;*/
@@ -577,7 +617,6 @@ osg::Geode* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				clump->GetGeometryList()[index]->faceType == FACETYPE_STRIP
 				? osg::PrimitiveSet::TRIANGLE_STRIP // D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP
 				: osg::PrimitiveSet::TRIANGLES // D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST
-
 				,
 				clump->GetGeometryList()[index]->splits[i].m_numIndices
 			);
@@ -588,27 +627,38 @@ osg::Geode* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				sizeof(unsigned int) * clump->GetGeometryList()[index]->splits[i].m_numIndices);
 
 			quad->setVertexArray(vertices);
-			quad->addPrimitiveSet(indices);
 			quad->setTexCoordArray(0, texcoords);
+			//if (clump->GetGeometryList()[index]->flags & FLAGS_NORMALS) {
+			//	quad->setNormalBinding(osg::Geometry::BIND_OVERALL);
+			//}
+			quad->addPrimitiveSet(indices);
+
+			//osg::Texture2D *texture = new osg::Texture2D;
+			//osg::Image *image = osgDB::readImageFile("texture-test2.bmp");
+			//texture->setImage(image);
+
+			
+			//osg::ref_ptr<osg::Texture2D> texture = new osg::Texture2D;
+			//texture->setImage(gimage);
 
 
 			// wireframe
-			osg::ref_ptr<osg::PolygonMode> pm = new osg::PolygonMode;
-			pm->setMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE);
-			quad->getOrCreateStateSet()->setAttribute(pm.get());
+			//osg::ref_ptr<osg::PolygonMode> pm = new osg::PolygonMode;
+			//pm->setMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE);
+			//quad->getOrCreateStateSet()->setAttribute(pm.get());
+
+
+
+
+			
+			// osg::ref_ptr<osg::Image> image = osgDB::readImageFile("../data/Images/lz.rgb");
+			//osg::ref_ptr<osg::Image> image = ReadDDSFile(null, false);
+			//texture->setImage(gimage);
 
 
 
 
 			//osg::ref_ptr<osg::Texture2D> texture = new osg::Texture2D;
-			// osg::ref_ptr<osg::Image> image = osgDB::readImageFile("../data/Images/lz.rgb");
-			//osg::ref_ptr<osg::Image> image = ReadDDSFile(null, false);
-			//texture->setImage(image.get());
-
-
-
-
-			osg::ref_ptr<osg::Texture2D> texture = new osg::Texture2D;
 
 			uint32_t materialIndex = clump->GetGeometryList()[index]->splits[i].matIndex;
 
@@ -636,35 +686,38 @@ osg::Geode* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 					//model->SetAlpha(true);
 				//}
 
-				
-			// osg::ref_ptr<osg::Image> image = osgDB::readImageFile("../data/Images/lz.rgb");
-			//osg::ref_ptr<osg::Image> image = ReadDDSFile(null, false);
-			   texture->setImage(g_Textures[matIndex].image);
+				// osg::ref_ptr<osg::Image> image = osgDB::readImageFile("../data/Images/lz.rgb");
+				//osg::ref_ptr<osg::Image> image = ReadDDSFile(null, false);
+				//texture->setImage(g_Textures[matIndex].image);
 				/*mesh->SetDataDDS(
-					render,
-					g_Textures[matIndex].source,
-					g_Textures[matIndex].size,
-					g_Textures[matIndex].width,
-					g_Textures[matIndex].height,
-					g_Textures[matIndex].dxtCompression,
-					g_Textures[matIndex].depth
+						render,
+						g_Textures[matIndex].source,
+						g_Textures[matIndex].size,
+						g_Textures[matIndex].width,
+						g_Textures[matIndex].height,
+						g_Textures[matIndex].dxtCompression,
+						g_Textures[matIndex].depth
 				);*/
 			}
 
+			gtexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+			gtexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
 
+			// Create a StateSet to apply the texture
 
-
-
-
-
-			root2->addDrawable(quad);
-			
-			root2->getOrCreateStateSet()->setTextureAttributeAndModes(0, texture.get());
-			
+			if (clump->GetGeometryList()[index]->flags & FLAGS_TEXTURED) {
+				osg::ref_ptr<osg::StateSet> stateSet = root2->getOrCreateStateSet();
+				stateSet->setTextureAttributeAndModes(0, gtexture, osg::StateAttribute::ON);
+				stateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF); // Disable lighting for this example
+			}
+			root2->addDrawable(quad);		
+			//root2->getOrCreateStateSet()->setTextureAttributeAndModes(0, gtexture);
 		}
 
 		root->addChild(root2);
 	}
+
+	
 
 	//clump->Clear();
 	//delete clump;
@@ -672,7 +725,6 @@ osg::Geode* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 	return root;
 }
 
-#include    <osg/MatrixTransform>
 
 int main(int argc, char **argv)
 {
@@ -681,8 +733,6 @@ int main(int argc, char **argv)
 
 	IMG* imgLoader = new IMG();
 	imgLoader->Open(imgPath, dirPath);
-
-
 
 	char maps[][MAX_LENGTH_FILENAME] = {
 		{ "airport" },
@@ -693,7 +743,7 @@ int main(int argc, char **argv)
 		{ "cisland" },
 		{ "club" },
 		{ "concerth"},
-		{ "docks"},
+		{ "docks" },
 		{ "downtown"},
 		{ "downtows"},
 		{ "golf" },
@@ -760,18 +810,16 @@ int main(int argc, char **argv)
 		LoadAllTexturesFromTXDFile(imgLoader, textures[i].c_str());
 	}
 
-	osg::Group* root = new osg::Group;
-	
+	osg::ref_ptr<osg::Group> root = new osg::Group;
 
 
 	/* Loading models. IDE file doesn't contain dublicate models */
 	for (int i = 0; i < g_ideFile.size(); i++) {
 		for (int j = 0; j < g_ideFile[i]->GetCountItems(); j++) {
 			struct itemDefinition* itemDef = &g_ideFile[i]->GetItems()[j];
-			//LoadFileDFFWithName(imgLoader, NULL, itemDef->modelName, itemDef->objectId);
 
-			//osg::Geode *rootq = loadDFF(imgLoader, itemDef->modelName, itemDef->objectId);
-			//root->addChild(rootq);
+			//osg::Group *group = loadDFF(imgLoader, itemDef->modelName, itemDef->objectId);
+			//root->addChild(group);
 		}
 	}
 
@@ -791,6 +839,9 @@ int main(int argc, char **argv)
 	printf("[Info] %s loaded\n", PROJECT_NAME);
 
 
+	gtexture = new osg::Texture2D;
+	gimage = osgDB::readImageFile("texture-test2.bmp");
+	gtexture->setImage(gimage);
 
 	for (int i = 0; i < g_ipl.size(); i++) {
 		int count = g_ipl[i]->GetCountObjects();
@@ -802,9 +853,8 @@ int main(int argc, char **argv)
 			float y = objectInfo.y;
 			float z = objectInfo.z;
 
-			osg::Geode *rootq = loadDFF(imgLoader, g_ipl[i]->GetItem(j).modelName, g_ipl[i]->GetItem(j).id);
+			osg::ref_ptr<osg::Group> rootq = loadDFF(imgLoader, g_ipl[i]->GetItem(j).modelName, g_ipl[i]->GetItem(j).id);
 			
-
 			osg::ref_ptr<osg::MatrixTransform> transform1 = new osg::MatrixTransform;
 			transform1->setMatrix(osg::Matrix::translate(x, z, y)); // X Z Y
 			transform1->addChild(rootq);
@@ -812,11 +862,6 @@ int main(int argc, char **argv)
 			root->addChild(transform1);
 		}
 	}
-
-
-
-	//osg::Geode* rootq = loadDFF(imgLoader, 200);
-
 
 	osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
 	vertices->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
@@ -831,6 +876,11 @@ int main(int argc, char **argv)
 	colors->push_back(osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f));
 	colors->push_back(osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
 
+	osg::ref_ptr<osg::Vec2Array> texcoords = new osg::Vec2Array;
+	texcoords->push_back(osg::Vec2(0.0f, 0.0f));
+	texcoords->push_back(osg::Vec2(0.0f, 1.0f));
+	texcoords->push_back(osg::Vec2(1.0f, 1.0f));
+
 	osg::ref_ptr<osg::Geometry> quad = new osg::Geometry;
 	quad->setVertexArray(vertices.get());
 
@@ -840,7 +890,16 @@ int main(int argc, char **argv)
 	quad->setColorArray(colors.get());
 	quad->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
 
+	quad->setTexCoordArray(0, texcoords.get());
+
 	quad->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, 3));
+
+	osg::ref_ptr<osg::Texture2D> texture = new osg::Texture2D;
+	osg::ref_ptr<osg::Image> image = osgDB::readImageFile("texture-test.bmp");
+	// texture->setImage(image.get());
+	texture->setImage(gimage);
+
+	
 
 	osg::ref_ptr<osg::Geode> rootTri = new osg::Geode;
 	osg::ref_ptr<osg::MatrixTransform> transform1 = new osg::MatrixTransform;
@@ -848,28 +907,27 @@ int main(int argc, char **argv)
 	transform1->addChild(rootTri);
 	
 	rootTri->addDrawable(quad);
+	rootTri->getOrCreateStateSet()->setTextureAttributeAndModes(0, texture.get());
 
 	root->addChild(rootTri);
 
 
 	osgViewer::Viewer viewer;
-
-	//viewer.setUpViewInWindow(0, 0, 1024, 768);
-
-	//osg::ref_ptr<osg::Camera> camera = viewer.getCamera();
-	//if (camera->getViewMatrix().isNaN())
-	//camera->setViewMatrix(osg::Matrix::identity());
-
-	viewer.setSceneData(root);
+	viewer.setUpViewInWindow(0, 0, 1920, 1080);
 
 	// if the view matrix is invalid (NaN), use the identity
+	// osg::ref_ptr<osg::Camera> camera = viewer.getCamera();
+	// if (camera->getViewMatrix().isNaN())
+	// camera->setViewMatrix(osg::Matrix::identity());
 
+	viewer.setSceneData(root);
+	
 	return viewer.run();
 
-	viewer.realize();
+	/* viewer.realize();
 	while (!viewer.done()) {
 		viewer.frame();
 	}
 	
-	return 0;
+	return 0; */
 }
