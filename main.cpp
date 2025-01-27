@@ -478,7 +478,7 @@ void checkOpenGLError(const std::string& functionName) {
 	}
 }
 
-osg::Group* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
+osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 {
 	// checkOpenGLError("loadDFF");
 
@@ -499,7 +499,7 @@ osg::Group* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 	char* fileBuffer = (char*)imgLoader->GetFileById(fileId);
 
 
-	osg::Group *root = new osg::Group;
+	osg::ref_ptr<osg::Group> root = new osg::Group;
 
 
 	Clump* clump = new Clump();
@@ -551,7 +551,8 @@ osg::Group* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 
 			osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
 			osg::ref_ptr<osg::Vec2Array> texcoords = new osg::Vec2Array;
-			// osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array;
+			osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array;
+			osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
 
 			int v_count = clump->GetGeometryList()[index]->vertexCount;
 
@@ -559,25 +560,6 @@ osg::Group* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				float x = clump->GetGeometryList()[index]->vertices[v * 3 + 0];
 				float y = clump->GetGeometryList()[index]->vertices[v * 3 + 1];
 				float z = clump->GetGeometryList()[index]->vertices[v * 3 + 2];
-
-				if (clump->GetGeometryList()[index]->flags & FLAGS_NORMALS) {
-					float nx = clump->GetGeometryList()[index]->normals[v * 3 + 0];
-					float ny = clump->GetGeometryList()[index]->normals[v * 3 + 1];
-					float nz = clump->GetGeometryList()[index]->normals[v * 3 + 2];
-
-					// normals->push_back(osg::Vec3(nx, ny, nz));
-				}
-				
-
-				float tx = 0.0f;
-				float ty = 0.0f;
-				if (clump->GetGeometryList()[index]->flags & FLAGS_TEXTURED) {
-					tx = clump->GetGeometryList()[index]->texCoords[0][v * 2 + 0];
-					ty = clump->GetGeometryList()[index]->texCoords[0][v * 2 + 1];
-
-					texcoords->push_back(osg::Vec2(tx, ty));
-				}
-
 				/*
 				 * Flip coordinates. We use Left Handed Coordinates,
 				 * but GTA engine use own coordinate system:
@@ -587,6 +569,36 @@ osg::Group* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				 * @see https://gtamods.com/wiki/Map_system
 				*/
 				vertices->push_back(osg::Vec3(x, y, z));
+
+				if (clump->GetGeometryList()[index]->flags & FLAGS_NORMALS) {
+					float nx = clump->GetGeometryList()[index]->normals[v * 3 + 0];
+					float ny = clump->GetGeometryList()[index]->normals[v * 3 + 1];
+					float nz = clump->GetGeometryList()[index]->normals[v * 3 + 2];
+
+					normals->push_back(osg::Vec3(nx, ny, nz));
+				}
+
+				float tx = 0.0f;
+				float ty = 0.0f;
+
+				if (clump->GetGeometryList()[index]->flags & FLAGS_TEXTURED) {
+					tx = clump->GetGeometryList()[index]->texCoords[0][v * 2 + 0];
+					ty = clump->GetGeometryList()[index]->texCoords[0][v * 2 + 1];
+				}
+				texcoords->push_back(osg::Vec2(tx, ty));
+
+
+				uint8_t cx = 0;
+				uint8_t cy = 0;
+				uint8_t cz = 0;
+				uint8_t cr = 0;
+				if (clump->GetGeometryList()[index]->flags & FLAGS_PRELIT) {
+					cx = clump->GetGeometryList()[index]->vertexColors[v * 4 + 0];
+					cy = clump->GetGeometryList()[index]->vertexColors[v * 4 + 1];
+					cz = clump->GetGeometryList()[index]->vertexColors[v * 4 + 2];
+					cr = clump->GetGeometryList()[index]->vertexColors[v * 4 + 3];
+				}
+				colors->push_back(osg::Vec4(cx, cy, cz, cr));
 			}
 
 			osg::ref_ptr<osg::DrawElementsUInt> indices = new osg::DrawElementsUInt(
@@ -602,12 +614,19 @@ osg::Group* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 			memcpy((void*)indices->getDataPointer(), (unsigned int*)clump->GetGeometryList()[index]->splits[i].indices,
 				sizeof(unsigned int) * clump->GetGeometryList()[index]->splits[i].m_numIndices);
 
-			geometry->setVertexArray(vertices);
-			geometry->setTexCoordArray(0, texcoords);
-			//if (clump->GetGeometryList()[index]->flags & FLAGS_NORMALS) {
-			//	quad->setNormalBinding(osg::Geometry::BIND_OVERALL);
-			//}
-			geometry->addPrimitiveSet(indices);
+			geometry->setVertexArray(vertices.get());
+
+			geometry->setTexCoordArray(0, texcoords.get());
+
+			if (clump->GetGeometryList()[index]->flags & FLAGS_NORMALS) {
+				geometry->setNormalArray(normals.get());
+				geometry->setNormalBinding(osg::Geometry::BIND_OVERALL);
+			}
+
+			geometry->setColorArray(colors.get());
+			geometry->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+
+			geometry->addPrimitiveSet(indices.get());
 
 			//osg::Texture2D *texture = new osg::Texture2D;
 			//osg::Image *image = osgDB::readImageFile("texture-test2.bmp");
@@ -621,7 +640,7 @@ osg::Group* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 			// wireframe
 			//osg::ref_ptr<osg::PolygonMode> pm = new osg::PolygonMode;
 			//pm->setMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE);
-			//quad->getOrCreateStateSet()->setAttribute(pm.get());
+			//geometry->getOrCreateStateSet()->setAttribute(pm.get());
 
 
 
@@ -681,16 +700,24 @@ osg::Group* loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 
 			// Create a StateSet to apply the texture
 
-			if (clump->GetGeometryList()[index]->flags & FLAGS_TEXTURED) {
+			
+
+
+
+			geode->addDrawable(geometry.get());
+
+			//if (clump->GetGeometryList()[index]->flags & FLAGS_TEXTURED) {
 				osg::ref_ptr<osg::StateSet> stateSet = geode->getOrCreateStateSet();
 				stateSet->setTextureAttributeAndModes(0, gtexture, osg::StateAttribute::ON);
-				// stateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF); // Disable lighting for this example
-			}
-			geode->addDrawable(geometry);		
+				stateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF); // Disable lighting for this example
+
+				//geode->getOrCreateStateSet()->setTextureAttributeAndModes(0, gtexture);
+
+			//}
 			//root2->getOrCreateStateSet()->setTextureAttributeAndModes(0, gtexture);
 		}
 
-		root->addChild(geode);
+		root->addChild(geode.get());
 	}
 
 	
@@ -833,9 +860,9 @@ int main(int argc, char **argv)
 			
 			osg::ref_ptr<osg::MatrixTransform> transform1 = new osg::MatrixTransform;
 			transform1->setMatrix(osg::Matrix::translate(x, z, y)); // X Z Y
-			transform1->addChild(rootq);
+			transform1->addChild(rootq.get());
 
-			root->addChild(transform1);
+			root->addChild(transform1.get());
 		}
 	}
 
