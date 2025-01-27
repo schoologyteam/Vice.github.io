@@ -26,6 +26,7 @@
 int frameCount = 0;
 Frustum g_frustum;
 
+#include <osg/Material>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
@@ -576,6 +577,7 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 					float nz = clump->GetGeometryList()[index]->normals[v * 3 + 2];
 
 					normals->push_back(osg::Vec3(nx, ny, nz));
+					//normals->push_back(osg::Vec3(0.0, -1.0, 0.0));
 				}
 
 				float tx = 0.0f;
@@ -598,7 +600,7 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 					cz = clump->GetGeometryList()[index]->vertexColors[v * 4 + 2];
 					cr = clump->GetGeometryList()[index]->vertexColors[v * 4 + 3];
 				}
-				colors->push_back(osg::Vec4(cx, cy, cz, cr));
+				colors->push_back(osg::Vec4(0.5, 0.5, 0.5, 1.0));
 			}
 
 			osg::ref_ptr<osg::DrawElementsUInt> indices = new osg::DrawElementsUInt(
@@ -708,9 +710,15 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 
 			//if (clump->GetGeometryList()[index]->flags & FLAGS_TEXTURED) {
 				osg::ref_ptr<osg::StateSet> stateSet = geode->getOrCreateStateSet();
-				stateSet->setTextureAttributeAndModes(0, gtexture, osg::StateAttribute::ON);
-				stateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF); // Disable lighting for this example
+				stateSet->setTextureAttributeAndModes(0, gtexture);
+				//stateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF); // Disable lighting for this example
+				//stateSet->setMode(GL_LIGHT0, osg::StateAttribute::OFF); // Disable lighting for this example
 
+	//			osg::ref_ptr<osg::Material> mat = new osg::Material;
+		//		mat->setColorMode(osg::Material::AMBIENT_AND_DIFFUSE);
+			//	stateSet->setAttribute(mat.get());
+				//stateSet->setMode(osg::StateAttribute:: GL_RESCALE_NORMAL, osg::StateAttribute::ON);
+				//stateSet->setMode( GL_NORMALIZE, osg::StateAttribute::ON );
 				//geode->getOrCreateStateSet()->setTextureAttributeAndModes(0, gtexture);
 
 			//}
@@ -912,6 +920,19 @@ int main(int argc, char **argv)
 	rootTri->addDrawable(quad);
 	rootTri->getOrCreateStateSet()->setTextureAttributeAndModes(0, texture.get());
 
+
+	osg::Group* gr = new osg::Group;
+
+	osg::ref_ptr<osg::LightSource> ls = new osg::LightSource;
+	osg::Light* light = new osg::Light;
+	light->setAmbient(osg::Vec4(1.0, 1.0, 1.0, 1.0));
+	light->setDiffuse(osg::Vec4(1.0, 1.0, 1.0, 1.0));
+	light->setSpecular(osg::Vec4(1, 1, 1, 1));  // some examples don't have this one
+	ls->setLight(light);
+	
+	gr->addChild(ls);
+
+	// root->addChild(gr);
 	root->addChild(rootTri);
 
 
