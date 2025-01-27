@@ -51,7 +51,7 @@ struct GameMaterial {
 	uint32_t dxtCompression;
 	uint32_t depth;
 	bool IsAlpha;
-	osg::Image* image;
+	osg::ref_ptr<osg::Image> image;
 };
 
 struct ModelMaterial {
@@ -77,6 +77,7 @@ char* manualCreateDds(uint8_t* pDataSourceDDS, size_t fileSizeDDS, uint32_t widt
 {
 	/* Manual create DDS file */
 	struct DDS_File dds;
+
 	dds.dwMagic = DDS_MAGIC;
 	dds.header.size = sizeof(struct DDS_HEADER);
 	dds.header.flags = 0; // 0
@@ -85,8 +86,7 @@ char* manualCreateDds(uint8_t* pDataSourceDDS, size_t fileSizeDDS, uint32_t widt
 	dds.header.pitchOrLinearSize = width * height;
 	dds.header.mipMapCount = 0;
 	dds.header.ddspf.size = sizeof(struct DDS_PIXELFORMAT);
-	//ddsd.ddpfPixelFormat.dwSize = sizeof(ddsd.ddpfPixelFormat);
-	dds.header.ddspf.flags = DDS_FOURCC; // DDS_PAL8; // TODO: use DDS_HEADER_FLAGS_VOLUME for depth
+	dds.header.ddspf.flags = DDPF_FOURCC; // DDS_PAL8; // TODO: use DDS_HEADER_FLAGS_VOLUME for depth
 	//dds.header.depth = depth; // TODO: is working?
 	switch (dxtCompression) {
 	default:
@@ -102,7 +102,7 @@ char* manualCreateDds(uint8_t* pDataSourceDDS, size_t fileSizeDDS, uint32_t widt
 	}
 	// ddsd.ddpfPixelFormat.dwFourCC = bpp == 24 ? FOURCC_DXT1 : FOURCC_DXT5;
 
-	size_t len = sizeof(struct DDS_File) + fileSizeDDS;
+	size_t len = sizeof(dds) + fileSizeDDS;
 	// было в uint8_t*
 	char* buf = (char*)malloc(len);
 	memcpy(buf, &dds, sizeof(dds));
@@ -121,6 +121,7 @@ struct membuf : std::streambuf
 		this->setg(begin, begin, end);
 	}
 };
+
 
 void LoadAllTexturesFromTXDFile(IMG *pImgLoader, const char *filename)
 {
@@ -169,27 +170,31 @@ void LoadAllTexturesFromTXDFile(IMG *pImgLoader, const char *filename)
 
 		
 		// manual create DDS file from buffer
-		//char *fileBuf = manualCreateDds(m.source, len, m.width, m.height, m.dxtCompression, m.depth);
+		char *fileBuf = manualCreateDds(m.source, len, m.width, m.height, m.dxtCompression, m.depth);
 
 		// convert buffer to istream
-		/*int size_t = sizeof(struct DDS_File) + m.size;
-		std::vector<uint8_t> data(fileBuf[0], fileBuf[len]);
-		imemstream stream(reinterpret_cast<const char*>(data.data()), data.size());*/
+		//int size_t = sizeof(struct DDS_File) + m.size;
+		//std::vector<uint8_t> data(fileBuf[0], fileBuf[len]);
+		//imemstream stream(reinterpret_cast<const char*>(data.data()), data.size());
 		
 		
 		
-		//membuf sbuf(fileBuf, fileBuf + sizeof(fileBuf));
-		//std::istream in(&sbuf);
+		membuf sbuf(fileBuf, fileBuf + len + sizeof (struct DDS_File));
+		std::istream in(&sbuf);
 
 		// load dds file from istream
-		//osg::Image *image = ReadDDSFile(in, false);
-		//if (image == NULL) {
-		//	printf("image = NULL \n");
-		//}
+		osg::Image * image = ReadDDSFile(in, false);
+		if (image == NULL) {
+			printf("image = NULL \n");
+		}
+		image->setFileName(filename);
 
-		//m.image = image;
+		
+		m.image = new osg::Image(*image, osg::CopyOp::DEEP_COPY_ALL);
 
 		g_Textures.push_back(m);
+
+
 	}
 
 	//free(fileBuffer);
@@ -600,7 +605,7 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 					cz = clump->GetGeometryList()[index]->vertexColors[v * 4 + 2];
 					cr = clump->GetGeometryList()[index]->vertexColors[v * 4 + 3];
 				}
-				colors->push_back(osg::Vec4(0.5, 0.5, 0.5, 1.0));
+				colors->push_back(osg::Vec4(1.0, 1.0, 1.0, 1.0));
 			}
 
 			osg::ref_ptr<osg::DrawElementsUInt> indices = new osg::DrawElementsUInt(
@@ -655,7 +660,7 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 
 
 
-			//osg::ref_ptr<osg::Texture2D> texture = new osg::Texture2D;
+			
 
 			uint32_t materialIndex = clump->GetGeometryList()[index]->splits[i].matIndex;
 
@@ -682,10 +687,13 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				//if (g_Textures[matIndex].IsAlpha) {
 					//model->SetAlpha(true);
 				//}
+				
+				osg::Texture2D* texture = new osg::Texture2D;
+				texture->setImage(g_Textures[matIndex].image);
 
-				// osg::ref_ptr<osg::Image> image = osgDB::readImageFile("../data/Images/lz.rgb");
-				//osg::ref_ptr<osg::Image> image = ReadDDSFile(null, false);
-				//texture->setImage(g_Textures[matIndex].image);
+				geode->getOrCreateStateSet()->setTextureAttributeAndModes(0, texture);
+				
+				
 				/*mesh->SetDataDDS(
 						render,
 						g_Textures[matIndex].source,
@@ -709,8 +717,7 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 			geode->addDrawable(geometry.get());
 
 			//if (clump->GetGeometryList()[index]->flags & FLAGS_TEXTURED) {
-				osg::ref_ptr<osg::StateSet> stateSet = geode->getOrCreateStateSet();
-				stateSet->setTextureAttributeAndModes(0, gtexture);
+				
 				//stateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF); // Disable lighting for this example
 				//stateSet->setMode(GL_LIGHT0, osg::StateAttribute::OFF); // Disable lighting for this example
 
