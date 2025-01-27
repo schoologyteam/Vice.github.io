@@ -187,10 +187,10 @@ void LoadAllTexturesFromTXDFile(IMG *pImgLoader, const char *filename)
 		if (image == NULL) {
 			printf("image = NULL \n");
 		}
-		image->setFileName(filename);
+		image->setFileName(t.name);
 
 		
-		m.image = new osg::Image(*image, osg::CopyOp::DEEP_COPY_ALL);
+		m.image = new osg::Image(*image);
 
 		g_Textures.push_back(m);
 
@@ -623,7 +623,9 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 
 			geometry->setVertexArray(vertices.get());
 
-			geometry->setTexCoordArray(0, texcoords.get());
+			if (clump->GetGeometryList()[index]->flags & FLAGS_TEXTURED) {
+				geometry->setTexCoordArray(0, texcoords.get());
+			}
 
 			if (clump->GetGeometryList()[index]->flags & FLAGS_NORMALS) {
 				geometry->setNormalArray(normals.get());
@@ -691,6 +693,20 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				osg::Texture2D* texture = new osg::Texture2D;
 				texture->setImage(g_Textures[matIndex].image);
 
+				
+
+				// Set texture wrapping modes
+				texture->setWrap(osg::Texture::WRAP_S, osg::Texture::WrapMode::REPEAT); // Wrap horizontally
+				texture->setWrap(osg::Texture::WRAP_T, osg::Texture::WrapMode::REPEAT); // Wrap vertically
+				//texture->setWrap(osg::Texture::WRAP_R, osg::Texture::WrapMode::REPEAT);
+
+				//texture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+				//texture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+
+				//texture->setWrap(osg::Texture::WrapParameter::WRAP_S, osg::Texture::WrapMode::REPEAT);
+				//texture->setWrap(osg::Texture::WrapParameter::WRAP_T, osg::Texture::WrapMode::REPEAT);
+				//texture->setWrap(osg::Texture::WrapParameter::WRAP_R, osg::Texture::WrapMode::REPEAT);
+
 				geode->getOrCreateStateSet()->setTextureAttributeAndModes(0, texture);
 				
 				
@@ -705,8 +721,7 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				);*/
 			}
 
-			// gtexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-			// gtexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+			
 
 			// Create a StateSet to apply the texture
 
@@ -743,6 +758,8 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 	return root;
 }
 
+#include <osgGA/TrackballManipulator>
+#include <osgGA/FirstPersonManipulator>
 
 int main(int argc, char **argv)
 {
@@ -753,12 +770,12 @@ int main(int argc, char **argv)
 	imgLoader->Open(imgPath, dirPath);
 
 	char maps[][MAX_LENGTH_FILENAME] = {
-		{ "airport" },
-		{ "airportN" },
-		{ "bank" },
-		{ "bar" },
+		//{ "airport" },
+		//{ "airportN" },
+		//{ "bank" },
+		//{ "bar" },
 		{ "bridge" },
-		{ "cisland" },
+		/*{ "cisland" },
 		{ "club" },
 		{ "concerth"},
 		{ "docks" },
@@ -783,7 +800,7 @@ int main(int argc, char **argv)
 		{ "stripclb" },
 		{ "washintn" },
 		{ "washints" },
-		{ "yacht" }
+		{ "yacht" }*/
 	};
 
 	/* Load map models and their textures */
@@ -944,13 +961,28 @@ int main(int argc, char **argv)
 
 
 	osgViewer::Viewer viewer;
-	viewer.setUpViewInWindow(0, 0, 1920, 1080);
+	//viewer.setUpViewInWindow(0, 0, 1920, 1080);
 
 	// if the view matrix is invalid (NaN), use the identity
 	// osg::ref_ptr<osg::Camera> camera = viewer.getCamera();
 	// if (camera->getViewMatrix().isNaN())
 	// camera->setViewMatrix(osg::Matrix::identity());
 
+	
+
+	 // Create the first-person camera
+	//osg::ref_ptr<osg::Camera> firstPersonCamera = new osg::Camera();
+	//firstPersonCamera->setProjectionMatrixAsPerspective(45.0f, 3840/2160, 1.0f, 1000.0f);
+	//firstPersonCamera->setViewMatrixAsLookAt(osg::Vec3(0.0f, 0.0f, 100.0f), // Camera position (eye)
+	//	osg::Vec3(0.0f, 0.0f, 0.0f), // Look at point
+	//	osg::Vec3(0.0f, 1.0f, 0.0f)); // Up vector
+	//viewer.setCamera(firstPersonCamera);
+
+	// Set the camera manipulator for user input
+	viewer.setCameraManipulator(new osgGA::TrackballManipulator());
+	//viewer.setCameraManipulator(new osgGA::FirstPersonManipulator());
+
+	// viewer.getCamera()->setClearColor(osg::Vec4(0., 0., 0., 1.));
 	viewer.setSceneData(root);
 	
 	return viewer.run();
