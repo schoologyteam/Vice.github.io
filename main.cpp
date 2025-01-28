@@ -123,6 +123,98 @@ struct membuf : std::streambuf
 };
 
 
+void LoadTXDFile(const char* filename)
+{
+	printf("Loading txd file: %s\n", filename);
+
+	FILE* fp;
+	long lSize;
+	char* buffer;
+
+	fp = fopen(filename, "rb");
+	if (!fp) perror(filename), exit(1);
+
+	fseek(fp, 0L, SEEK_END);
+	lSize = ftell(fp);
+	rewind(fp);
+
+	/* allocate memory for entire content */
+	buffer = (char*)calloc(1, lSize + 1);
+	if (!buffer) fclose(fp), fputs("memory alloc fails", stderr), exit(1);
+
+	/* copy the file into the buffer */
+	if (1 != fread(buffer, lSize, 1, fp))
+		fclose(fp), free(buffer), fputs("entire read fails", stderr), exit(1);
+
+	/* do your work here, buffer is a string contains the whole text */
+
+	fclose(fp);
+
+
+	size_t offset = 0;
+	TextureDictionary txd;
+	txd.read(buffer, &offset);
+
+	/* Loop for every texture in TXD file */
+	for (uint32_t i = 0; i < txd.texList.size(); i++) {
+		NativeTexture& t = txd.texList[i];
+		// printf("%s %s %d %d %d %d\n", t.name, t.maskName.c_str(), t.width[0], t.height[0], t.depth, t.rasterFormat);
+
+		printf("Loading texture %s\n", t.name);
+
+		uint8_t* texelsToArray = t.texels[0];
+		size_t len = t.dataSizes[0];
+
+		struct GameMaterial m;
+		memcpy(m.name, t.name, sizeof(t.name)); /* without extension ".TXD" */
+
+		/* TODO: Replace copy to buffer to best solution */
+		/* TODO: Free memory */
+		m.source = (uint8_t*)malloc(len);
+		memcpy(m.source, texelsToArray, len);
+
+		m.size = t.dataSizes[0];
+		m.width = t.width[0];
+		m.height = t.height[0];
+		m.dxtCompression = t.dxtCompression; /* DXT1, DXT3, DXT4 */
+		m.depth = t.depth;
+		m.IsAlpha = t.IsAlpha;
+
+		// printf("[OK] Loaded texture name %s from TXD file %s\n", t.name, result_name);
+
+
+		// manual create DDS file from buffer
+		char* fileBuf = manualCreateDds(m.source, len, m.width, m.height, m.dxtCompression, m.depth);
+
+		// convert buffer to istream
+		//int size_t = sizeof(struct DDS_File) + m.size;
+		//std::vector<uint8_t> data(fileBuf[0], fileBuf[len]);
+		//imemstream stream(reinterpret_cast<const char*>(data.data()), data.size());
+
+
+
+		membuf sbuf(fileBuf, fileBuf + len + sizeof(struct DDS_File));
+		std::istream in(&sbuf);
+
+		// load dds file from istream
+		osg::Image* image = ReadDDSFile(in, false);
+		if (image == NULL) {
+			printf("image = NULL \n");
+		}
+		image->setFileName(t.name);
+
+
+		m.image = new osg::Image(*image);
+
+		g_Textures.push_back(m);
+
+
+	}
+
+
+	free(buffer);
+}
+
 void LoadAllTexturesFromTXDFile(IMG *pImgLoader, const char *filename)
 {
 	char result_name[MAX_LENGTH_FILENAME + 4];
@@ -562,6 +654,7 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 
 			int v_count = clump->GetGeometryList()[index]->vertexCount;
 
+			
 			for (int v = 0; v < v_count; v++) {
 				float x = clump->GetGeometryList()[index]->vertices[v * 3 + 0];
 				float y = clump->GetGeometryList()[index]->vertices[v * 3 + 1];
@@ -575,6 +668,8 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				 * @see https://gtamods.com/wiki/Map_system
 				*/
 				vertices->push_back(osg::Vec3(x, y, z));
+
+				
 
 				if (clump->GetGeometryList()[index]->flags & FLAGS_NORMALS) {
 					float nx = clump->GetGeometryList()[index]->normals[v * 3 + 0];
@@ -637,14 +732,6 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 
 			geometry->addPrimitiveSet(indices.get());
 
-			//osg::Texture2D *texture = new osg::Texture2D;
-			//osg::Image *image = osgDB::readImageFile("texture-test2.bmp");
-			//texture->setImage(image);
-
-			
-			//osg::ref_ptr<osg::Texture2D> texture = new osg::Texture2D;
-			//texture->setImage(gimage);
-
 
 			// wireframe
 			//osg::ref_ptr<osg::PolygonMode> pm = new osg::PolygonMode;
@@ -652,17 +739,6 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 			//geometry->getOrCreateStateSet()->setAttribute(pm.get());
 
 
-
-
-			
-			// osg::ref_ptr<osg::Image> image = osgDB::readImageFile("../data/Images/lz.rgb");
-			//osg::ref_ptr<osg::Image> image = ReadDDSFile(null, false);
-			//texture->setImage(gimage);
-
-
-
-
-			
 
 			uint32_t materialIndex = clump->GetGeometryList()[index]->splits[i].matIndex;
 
@@ -683,7 +759,8 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				}
 			}
 
-			if (matIndex != -1) {
+			if (matIndex != -1 && 
+				clump->GetGeometryList()[index]->flags & FLAGS_TEXTURED) {
 				//mesh->SetAlpha(g_Textures[matIndex].IsAlpha);
 
 				//if (g_Textures[matIndex].IsAlpha) {
@@ -825,6 +902,12 @@ int main(int argc, char **argv)
 	int res = ide->Load("C:/Games/Grand Theft Auto Vice City/data/maps/generic.ide");
 	assert(res == 0);
 	g_ideFile.push_back(ide);
+
+
+	LoadTXDFile("C:/Games/Grand Theft Auto Vice City/models/generic.txd");
+	LoadTXDFile("C:/Games/Grand Theft Auto Vice City/models/MISC.txd");
+	LoadTXDFile("C:/Games/Grand Theft Auto Vice City/models/particle.txd");
+
 
 	/* Load from IDE file only archives textures */
 	std::vector<string> textures;
