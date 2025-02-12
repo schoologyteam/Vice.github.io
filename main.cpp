@@ -125,6 +125,8 @@ struct membuf : std::streambuf
 
 void LoadTXDFile(const char* filename)
 {
+	return;
+
 	printf("Loading txd file: %s\n", filename);
 
 	FILE* fp;
@@ -180,11 +182,14 @@ void LoadTXDFile(const char* filename)
 		m.depth = t.depth;
 		m.IsAlpha = t.IsAlpha;
 
+
+		t.decompressDxt();
+
 		// printf("[OK] Loaded texture name %s from TXD file %s\n", t.name, result_name);
 
 
 		// manual create DDS file from buffer
-		char* fileBuf = manualCreateDds(m.source, len, m.width, m.height, m.dxtCompression, m.depth);
+		//char* fileBuf = manualCreateDds(m.source, len, m.width, m.height, m.dxtCompression, m.depth);
 
 		// convert buffer to istream
 		//int size_t = sizeof(struct DDS_File) + m.size;
@@ -193,20 +198,42 @@ void LoadTXDFile(const char* filename)
 
 
 
-		membuf sbuf(fileBuf, fileBuf + len + sizeof(struct DDS_File));
-		std::istream in(&sbuf);
+		//membuf sbuf(fileBuf, fileBuf + len + sizeof(struct DDS_File));
+		//std::istream in(&sbuf);
 
 		// load dds file from istream
-		osg::Image* image = ReadDDSFile(in, false);
+		osg::Image* image = new osg::Image();  //ReadDDSFile(in, false);
+
+		image->allocateImage(m.width, m.height, 1, GL_RGB, GL_UNSIGNED_BYTE);
+
+		// Set data
+		float* data = reinterpret_cast<float*>(image->data());
+		/* ...data processing... */
+		memcpy(data, m.source, len);
+		//image->dirty();
+
 		if (image == NULL) {
 			printf("image = NULL \n");
 		}
 		image->setFileName(t.name);
 
 
-		m.image = new osg::Image(*image);
+		m.image = image;
 
 		g_Textures.push_back(m);
+
+
+
+		/*std::string te = t.name;
+		te += ".dds";
+		ofstream out(te);
+		if (!out)
+		{
+			cout << "Cannot open output file\n";
+			//return 1;
+		}
+		out.write((char*)fileBuf, len);
+		out.close();*/
 
 
 	}
@@ -260,9 +287,68 @@ void LoadAllTexturesFromTXDFile(IMG *pImgLoader, const char *filename)
 
 		// printf("[OK] Loaded texture name %s from TXD file %s\n", t.name, result_name);
 
+
+
+		// t.decompressDxt();
+		// t.convertTo32Bit();
+
+		// printf("[OK] Loaded texture name %s from TXD file %s\n", t.name, result_name);
+
+
+		// manual create DDS file from buffer
+		//char* fileBuf = manualCreateDds(m.source, len, m.width, m.height, m.dxtCompression, m.depth);
+
+		// convert buffer to istream
+		//int size_t = sizeof(struct DDS_File) + m.size;
+		//std::vector<uint8_t> data(fileBuf[0], fileBuf[len]);
+		//imemstream stream(reinterpret_cast<const char*>(data.data()), data.size());
+
+
+
+		//membuf sbuf(fileBuf, fileBuf + len + sizeof(struct DDS_File));
+		//std::istream in(&sbuf);
+
+		// load dds file from istream
+		osg::Image* image = new osg::Image();  //ReadDDSFile(in, false);
+
+
+		GLenum format = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
+		//blockSize = 8;
+		switch (t.dxtCompression)
+		{
+		default:
+		case 0:
+			format = GL_RGBA;
+			break;
+		case 1: // DXT1
+			format = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
+			break;
+		case 3: // DXT3
+			format = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
+			break;
+		case 5: // DXT5
+			format = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+			break;
+		}
+
+		image->allocateImage(m.width, m.height, m.depth, format, GL_UNSIGNED_BYTE); // GL_BYTE
+
+		// Set data
+		uint8_t* data = reinterpret_cast<uint8_t*>(image->data());
+		/* ...data processing... */
+		memcpy(data, t.texels[0], len);
+		//image->dirty();
+
+		if (image == NULL) {
+			printf("image = NULL \n");
+		}
+		image->setFileName(t.name);
+
+
+		m.image = image;
 		
 		// manual create DDS file from buffer
-		char *fileBuf = manualCreateDds(m.source, len, m.width, m.height, m.dxtCompression, m.depth);
+		//char *fileBuf = manualCreateDds(m.source, len, m.width, m.height, m.dxtCompression, m.depth);
 
 		// convert buffer to istream
 		//int size_t = sizeof(struct DDS_File) + m.size;
@@ -271,19 +357,17 @@ void LoadAllTexturesFromTXDFile(IMG *pImgLoader, const char *filename)
 		
 		
 		
-		membuf sbuf(fileBuf, fileBuf + len + sizeof (struct DDS_File));
-		std::istream in(&sbuf);
+		//membuf sbuf(fileBuf, fileBuf + len + sizeof (struct DDS_File));
+		//std::istream in(&sbuf);
 
 		// load dds file from istream
-		osg::Image * image = ReadDDSFile(in, false);
-		if (image == NULL) {
-			printf("image = NULL \n");
-		}
-		image->setFileName(t.name);
+		//osg::Image * image = ReadDDSFile(in, false);
+		//if (image == NULL) {
+		//	printf("image = NULL \n");
+		//}
+		//image->setFileName(t.name);
 
-		
-		m.image = new osg::Image(*image);
-
+	
 		g_Textures.push_back(m);
 
 
@@ -295,6 +379,8 @@ void LoadAllTexturesFromTXDFile(IMG *pImgLoader, const char *filename)
 
 int LoadFileDFFWithName(IMG* pImgLoader, DXRender* render, char *name, int modelId)
 {
+	return 1;
+
 	/* Skip LOD files */
 	if (strstr(name, "LOD") != NULL) {
 		return 0;
@@ -616,12 +702,13 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 
 			struct ModelMaterial matInd;
 			std::string b = material->texture.name;
-			//matInd.materialName = b;
 			memcpy(matInd.materialName, b.c_str(), sizeof(matInd.materialName));
 			matInd.index = i;
 
 			materIndex.push_back(matInd);
 		}
+
+		std::reverse(materIndex.begin(), materIndex.end());
 
 		/*for (uint32_t i = 0; i < clump->GetGeometryList()[index].vertexCount; i++) {
 
@@ -714,7 +801,7 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 			//indices->addElement((unsigned int)clump->GetGeometryList()[index]->splits[i].indices);
 
 			memcpy((void*)indices->getDataPointer(), (unsigned int*)clump->GetGeometryList()[index]->splits[i].indices,
-				sizeof(unsigned int) * clump->GetGeometryList()[index]->splits[i].m_numIndices);
+				sizeof(uint32_t) * clump->GetGeometryList()[index]->splits[i].m_numIndices);
 
 			geometry->setVertexArray(vertices.get());
 
@@ -739,8 +826,21 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 			//geometry->getOrCreateStateSet()->setAttribute(pm.get());
 
 
-
 			uint32_t materialIndex = clump->GetGeometryList()[index]->splits[i].matIndex;
+
+
+			//struct ModelMaterial nq = materIndex[materialIndex];
+
+  	//		int matIndex = -1;
+
+			//// Find texture by index
+			//for (int im = 0; im < g_Textures.size(); im++) {
+			//	if (strcmp(g_Textures[im].name, nq.materialName) == 0) {
+			//		matIndex = im;
+			//		//goto success;
+			//		break;
+			//	}
+			//}
 
 			int matIndex = -1;
 
@@ -755,12 +855,18 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 							break;
 						}
 					}
+					break;
 
 				}
 			}
+			
+		
 
-			if (matIndex != -1 && 
-				clump->GetGeometryList()[index]->flags & FLAGS_TEXTURED) {
+			//success:
+
+			if (matIndex != -1 
+				//&& 				clump->GetGeometryList()[index]->flags & FLAGS_TEXTURED
+				) {
 				//mesh->SetAlpha(g_Textures[matIndex].IsAlpha);
 
 				//if (g_Textures[matIndex].IsAlpha) {
@@ -770,8 +876,6 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				osg::Texture2D* texture = new osg::Texture2D;
 				texture->setImage(g_Textures[matIndex].image);
 
-				
-
 				// Set texture wrapping modes
 				texture->setWrap(osg::Texture::WRAP_S, osg::Texture::WrapMode::REPEAT); // Wrap horizontally
 				texture->setWrap(osg::Texture::WRAP_T, osg::Texture::WrapMode::REPEAT); // Wrap vertically
@@ -780,48 +884,11 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				//texture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
 				//texture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
 
-				//texture->setWrap(osg::Texture::WrapParameter::WRAP_S, osg::Texture::WrapMode::REPEAT);
-				//texture->setWrap(osg::Texture::WrapParameter::WRAP_T, osg::Texture::WrapMode::REPEAT);
-				//texture->setWrap(osg::Texture::WrapParameter::WRAP_R, osg::Texture::WrapMode::REPEAT);
-
-				geode->getOrCreateStateSet()->setTextureAttributeAndModes(0, texture);
-				
-				
-				/*mesh->SetDataDDS(
-						render,
-						g_Textures[matIndex].source,
-						g_Textures[matIndex].size,
-						g_Textures[matIndex].width,
-						g_Textures[matIndex].height,
-						g_Textures[matIndex].dxtCompression,
-						g_Textures[matIndex].depth
-				);*/
+				geometry->getOrCreateStateSet()->setTextureAttributeAndModes(0, texture);
 			}
-
 			
-
-			// Create a StateSet to apply the texture
-
-			
-
-
-
 			geode->addDrawable(geometry.get());
 
-			//if (clump->GetGeometryList()[index]->flags & FLAGS_TEXTURED) {
-				
-				//stateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF); // Disable lighting for this example
-				//stateSet->setMode(GL_LIGHT0, osg::StateAttribute::OFF); // Disable lighting for this example
-
-	//			osg::ref_ptr<osg::Material> mat = new osg::Material;
-		//		mat->setColorMode(osg::Material::AMBIENT_AND_DIFFUSE);
-			//	stateSet->setAttribute(mat.get());
-				//stateSet->setMode(osg::StateAttribute:: GL_RESCALE_NORMAL, osg::StateAttribute::ON);
-				//stateSet->setMode( GL_NORMALIZE, osg::StateAttribute::ON );
-				//geode->getOrCreateStateSet()->setTextureAttributeAndModes(0, gtexture);
-
-			//}
-			//root2->getOrCreateStateSet()->setTextureAttributeAndModes(0, gtexture);
 		}
 
 		root->addChild(geode.get());
@@ -847,12 +914,12 @@ int main(int argc, char **argv)
 	imgLoader->Open(imgPath, dirPath);
 
 	char maps[][MAX_LENGTH_FILENAME] = {
-		//{ "airport" },
-		//{ "airportN" },
-		//{ "bank" },
-		//{ "bar" },
+		{ "airport" },
+		{"airportN"},
+		{ "bank" },
+		{ "bar" },
 		{ "bridge" },
-		/*{ "cisland" },
+		{ "cisland" },
 		{ "club" },
 		{ "concerth"},
 		{ "docks" },
@@ -877,7 +944,7 @@ int main(int argc, char **argv)
 		{ "stripclb" },
 		{ "washintn" },
 		{ "washints" },
-		{ "yacht" }*/
+		{ "yacht" }
 	};
 
 	/* Load map models and their textures */
@@ -974,10 +1041,17 @@ int main(int argc, char **argv)
 			osg::ref_ptr<osg::Group> rootq = loadDFF(imgLoader, g_ipl[i]->GetItem(j).modelName, g_ipl[i]->GetItem(j).id);
 			
 			osg::ref_ptr<osg::MatrixTransform> transform1 = new osg::MatrixTransform;
-			transform1->setMatrix(osg::Matrix::translate(x, z, y)); // X Z Y
+			osg::Matrix mat;
+			mat.identity();
+			mat.setTrans(osg::Vec3(x, z, y));
+			//mat.setRotate(osg::Quat(objectInfo.rotation[0], objectInfo.rotation[1], objectInfo.rotation[3], objectInfo.rotation[2]));
+			transform1->setMatrix(mat); // X Z Y
 			transform1->addChild(rootq.get());
 
 			root->addChild(transform1.get());
+
+			//if (j >= 0) 
+			//	break;
 		}
 	}
 

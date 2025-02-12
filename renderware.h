@@ -176,6 +176,8 @@ struct NativeTexture {
 	char name[24];
 	std::string maskName;
 	uint32_t filterFlags;
+
+	
 	uint32_t rasterFormat;
 	std::vector<uint32_t> width;	// store width & height
 	std::vector<uint32_t> height;	// for each mipmap

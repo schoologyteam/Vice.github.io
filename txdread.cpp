@@ -89,6 +89,9 @@ void NativeTexture::readD3d(char *bytes, size_t *offset)
 
 	filterFlags = readUInt32(bytes, offset);
 
+
+	//uAddressing = readUInt8(bytes, offset);
+	//vAddressing = readUInt8(bytes, offset);
 	char buffer[32];
 	// rw.read(buffer, 32);
 	memcpy(name, &bytes[*offset], 24);
