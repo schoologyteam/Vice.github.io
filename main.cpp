@@ -312,7 +312,7 @@ void LoadAllTexturesFromTXDFile(IMG *pImgLoader, const char *filename)
 		osg::Image* image = new osg::Image();  //ReadDDSFile(in, false);
 
 
-		GLenum format = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
+		GLenum format = GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
 		//blockSize = 8;
 		switch (t.dxtCompression)
 		{
@@ -321,7 +321,10 @@ void LoadAllTexturesFromTXDFile(IMG *pImgLoader, const char *filename)
 			format = GL_RGBA;
 			break;
 		case 1: // DXT1
-			format = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
+			format = GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
+			if (t.IsAlpha) {
+				format = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
+			}
 			break;
 		case 3: // DXT3
 			format = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
@@ -330,6 +333,8 @@ void LoadAllTexturesFromTXDFile(IMG *pImgLoader, const char *filename)
 			format = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
 			break;
 		}
+
+		
 
 		image->allocateImage(m.width, m.height, m.depth, format, GL_UNSIGNED_BYTE); // GL_BYTE
 
@@ -884,7 +889,14 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				//texture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
 				//texture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
 
+
+
 				geometry->getOrCreateStateSet()->setTextureAttributeAndModes(0, texture);
+
+				if (g_Textures[matIndex].IsAlpha) {
+					geometry->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+				}
+
 			}
 			
 			geode->addDrawable(geometry.get());
