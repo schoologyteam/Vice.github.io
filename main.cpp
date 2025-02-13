@@ -918,7 +918,55 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 #include <osgGA/TrackballManipulator>
 #include <osgGA/FirstPersonManipulator>
 
-int main(int argc, char **argv)
+osg::ref_ptr<osg::Geometry> createPlane(float width, float height) {
+	osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry;
+
+	// Define the vertices of the plane (4 vertices, one for each corner)
+	osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
+	vertices->push_back(osg::Vec3(-width / 2.0f, -height / 2.0f, 0.0f)); // Bottom-left
+	vertices->push_back(osg::Vec3(width / 2.0f, -height / 2.0f, 0.0f));  // Bottom-right
+	vertices->push_back(osg::Vec3(width / 2.0f, height / 2.0f, 0.0f));   // Top-right
+	vertices->push_back(osg::Vec3(-width / 2.0f, height / 2.0f, 0.0f));  // Top-left
+
+	geometry->setVertexArray(vertices);
+
+	// Define the color for the plane (optional)
+	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+	colors->push_back(osg::Vec4(0.5f, 0.5f, 0.5f, 1.0f)); // Gray color
+	geometry->setColorArray(colors, osg::Array::BIND_OVERALL);
+
+	osg::ref_ptr<osg::Vec2Array> texCoords = new osg::Vec2Array;
+	texCoords->push_back(osg::Vec2(0.0f, 0.0f)); // Bottom-left
+	texCoords->push_back(osg::Vec2(100.0f, 0.0f)); // Bottom-right
+	texCoords->push_back(osg::Vec2(100.0f, 100.0f)); // Top-right
+	texCoords->push_back(osg::Vec2(0.0f, 100.0f)); // Top-left
+
+	/*texCoords->push_back(osg::Vec2(0.0f, 0.0f)); // Bottom-left
+	texCoords->push_back(osg::Vec2(1.0f, 0.0f)); // Bottom-right
+	texCoords->push_back(osg::Vec2(1.0f, 1.0f)); // Top-right
+	texCoords->push_back(osg::Vec2(0.0f, 1.0f)); // Top-left*/
+
+	geometry->setTexCoordArray(0, texCoords.get());
+
+	// Define the face (triangle) using the vertex indices
+	osg::ref_ptr<osg::DrawElementsUInt> indices = new osg::DrawElementsUInt(osg::PrimitiveSet::TRIANGLES, 0);
+	
+	// First triangle (Bottom-left, Bottom-right, Top-right)
+	indices->push_back(0); // Bottom-left
+	indices->push_back(1); // Bottom-right
+	indices->push_back(2); // Top-right
+
+	// Second triangle (Top-left, Bottom-left, Top-right)
+	indices->push_back(3); // Top-left
+	indices->push_back(0); // Bottom-left
+	indices->push_back(2); // Top-right
+
+	geometry->addPrimitiveSet(indices);
+
+	return geometry;
+}
+
+int main(int argc, char** argv)
 {
 	TCHAR imgPath[] = L"C:/Games/Grand Theft Auto Vice City/models/gta3.img";
 	TCHAR dirPath[] = L"C:/Games/Grand Theft Auto Vice City/models/gta3.dir";
@@ -1034,12 +1082,12 @@ int main(int argc, char **argv)
 		g_ipl.push_back(ipl);
 	}
 
-	printf("[Info] %s loaded\n", PROJECT_NAME);
+	
 
 
-	gtexture = new osg::Texture2D;
+	/*gtexture = new osg::Texture2D;
 	gimage = osgDB::readImageFile("texture-test2.bmp");
-	gtexture->setImage(gimage);
+	gtexture->setImage(gimage);*/
 
 	for (int i = 0; i < g_ipl.size(); i++) {
 		int count = g_ipl[i]->GetCountObjects();
@@ -1052,13 +1100,17 @@ int main(int argc, char **argv)
 			float z = objectInfo.z;
 
 			osg::ref_ptr<osg::Group> rootq = loadDFF(imgLoader, g_ipl[i]->GetItem(j).modelName, g_ipl[i]->GetItem(j).id);
-			
+
 			osg::ref_ptr<osg::MatrixTransform> transform1 = new osg::MatrixTransform;
 			osg::Matrix mat;
 			mat.identity();
 			mat.setTrans(osg::Vec3(x, y, z));
-			mat.setRotate(osg::Quat(objectInfo.rotation[0], objectInfo.rotation[1], objectInfo.rotation[2], -objectInfo.rotation[3]
-				));
+			mat.setRotate(osg::Quat(
+				objectInfo.rotation[0],
+				objectInfo.rotation[1],
+				objectInfo.rotation[2],
+				objectInfo.rotation[3] * -1
+			));
 			mat.scale(osg::Vec3(objectInfo.scale[0], objectInfo.scale[1], objectInfo.scale[2]));
 			transform1->setMatrix(mat);
 			transform1->addChild(rootq.get());
@@ -1070,6 +1122,38 @@ int main(int argc, char **argv)
 		}
 	}
 
+
+	osg::ref_ptr<osg::Geometry> plane = createPlane(5000.0f, 5000.0f);
+	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+	geode->addDrawable(plane);
+
+	osg::ref_ptr<osg::MatrixTransform> arTransformA = new osg::MatrixTransform();
+	osg::Matrix pos;
+	pos.setTrans(osg::Vec3(0.0f, 0.0f, 5.0f));
+	arTransformA->setMatrix(pos);
+
+	osg::Texture2D* texture = new osg::Texture2D;
+	for (int g = 0; g < g_Textures.size(); g++) {
+		if (strcmp(g_Textures[g].name, "waterclear256") == 0) {
+			texture->setImage(g_Textures[g].image);
+			break;
+		}
+	}
+
+	// Set texture wrapping modes
+	texture->setWrap(osg::Texture::WRAP_S, osg::Texture::WrapMode::REPEAT); // Wrap horizontally
+	texture->setWrap(osg::Texture::WRAP_T, osg::Texture::WrapMode::REPEAT); // Wrap vertically
+
+	plane->getOrCreateStateSet()->setTextureAttributeAndModes(0, texture);
+	
+	arTransformA->addChild(geode);
+
+	//gplane->addDrawable(arTransformA);
+
+
+	root->addChild(arTransformA);
+
+	/*
 	osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
 	vertices->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
 	vertices->push_back(osg::Vec3(1.0f, 0.0f, 0.0f));
@@ -1105,31 +1189,32 @@ int main(int argc, char **argv)
 	osg::ref_ptr<osg::Image> image = osgDB::readImageFile("texture-test.bmp");
 	// texture->setImage(image.get());
 	texture->setImage(gimage);
+	*/
 
-	
+	/*{
+		osg::ref_ptr<osg::Geode> rootTri = new osg::Geode;
+		osg::ref_ptr<osg::MatrixTransform> transform1 = new osg::MatrixTransform;
+		transform1->setMatrix(osg::Matrix::translate(0, 0, 0));
+		transform1->addChild(rootTri);
 
-	osg::ref_ptr<osg::Geode> rootTri = new osg::Geode;
-	osg::ref_ptr<osg::MatrixTransform> transform1 = new osg::MatrixTransform;
-	transform1->setMatrix(osg::Matrix::translate(0, 0, 0));
-	transform1->addChild(rootTri);
-	
-	rootTri->addDrawable(quad);
-	rootTri->getOrCreateStateSet()->setTextureAttributeAndModes(0, texture.get());
+		rootTri->addDrawable(quad);
+		rootTri->getOrCreateStateSet()->setTextureAttributeAndModes(0, texture.get());
 
 
-	osg::Group* gr = new osg::Group;
+		osg::Group* gr = new osg::Group;
 
-	osg::ref_ptr<osg::LightSource> ls = new osg::LightSource;
-	osg::Light* light = new osg::Light;
-	light->setAmbient(osg::Vec4(1.0, 1.0, 1.0, 1.0));
-	light->setDiffuse(osg::Vec4(1.0, 1.0, 1.0, 1.0));
-	light->setSpecular(osg::Vec4(1, 1, 1, 1));  // some examples don't have this one
-	ls->setLight(light);
-	
-	gr->addChild(ls);
+		osg::ref_ptr<osg::LightSource> ls = new osg::LightSource;
+		osg::Light* light = new osg::Light;
+		light->setAmbient(osg::Vec4(1.0, 1.0, 1.0, 1.0));
+		light->setDiffuse(osg::Vec4(1.0, 1.0, 1.0, 1.0));
+		light->setSpecular(osg::Vec4(1, 1, 1, 1));  // some examples don't have this one
+		ls->setLight(light);
 
-	// root->addChild(gr);
-	root->addChild(rootTri);
+		gr->addChild(ls);
+
+		// root->addChild(gr);
+		root->addChild(rootTri);
+	}*/
 
 
 	osgViewer::Viewer viewer;
@@ -1154,8 +1239,10 @@ int main(int argc, char **argv)
 	viewer.setCameraManipulator(new osgGA::TrackballManipulator());
 	//viewer.setCameraManipulator(new osgGA::FirstPersonManipulator());
 
-	// viewer.getCamera()->setClearColor(osg::Vec4(0., 0., 0., 1.));
+	viewer.getCamera()->setClearColor(osg::Vec4(0.49804f, 0.78431f, 0.94510f, 1.0f));
 	viewer.setSceneData(root);
+
+	printf("[Info] %s loaded\n", PROJECT_NAME);
 	
 	return viewer.run();
 
