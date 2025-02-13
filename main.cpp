@@ -966,6 +966,185 @@ osg::ref_ptr<osg::Geometry> createPlane(float width, float height) {
 	return geometry;
 }
 
+#include <osgGA/FirstPersonManipulator>
+
+#include <osg/MatrixTransform>
+#include <osgGA/FirstPersonManipulator>
+#include <osgViewer/Viewer>
+#include <osgGA/GUIEventHandler>
+#include <osg/Timer>
+#include <osgText/Text>
+#include <iostream>
+#include <math.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+
+class CameraManipulator : public osgGA::StandardManipulator
+{
+public:
+	CameraManipulator()
+	{
+		// Set initial camera position
+		_cameraPos = osg::Vec3(0.0f, -10.0f, 5.0f);
+		_cameraRot = osg::Quat(0.0f, osg::Vec3(0.0f, 0.0f, 1.0f)); // No rotation at the beginning
+	}
+
+	virtual void handleKeyEvent(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us)
+	{
+		switch (ea.getEventType())
+		{
+		case osgGA::GUIEventAdapter::KEYDOWN:
+			if (ea.getKey() == 'w') {
+				_cameraPos += osg::Vec3(0.0f, 0.1f, 0.0f);  // Move forward (along negative Y-axis)
+			}
+			else if (ea.getKey() == 's') {
+				_cameraPos -= osg::Vec3(0.0f, 0.1f, 0.0f);  // Move backward (along positive Y-axis)
+			}
+			else if (ea.getKey() == 'a') {
+				_cameraPos -= osg::Vec3(0.1f, 0.0f, 0.0f);  // Move left (along negative X-axis)
+			}
+			else if (ea.getKey() == 'd') {
+				_cameraPos += osg::Vec3(0.1f, 0.0f, 0.0f);  // Move right (along positive X-axis)
+			}
+			else if (ea.getKey() == 'q') {
+				_cameraRot *= osg::Quat(0.1f, osg::Vec3(0.0f, 0.0f, 1.0f));  // Rotate left (yaw)
+			}
+			else if (ea.getKey() == 'e') {
+				_cameraRot *= osg::Quat(-0.1f, osg::Vec3(0.0f, 0.0f, 1.0f));  // Rotate right (yaw)
+			}
+			break;
+		default:
+			break;
+		}
+		updateCamera();
+	}
+
+	void updateCamera()
+	{
+		// Apply position and rotation transformations
+		osg::MatrixTransform* transform = new osg::MatrixTransform;
+		transform->setMatrix(osg::Matrix::translate(_cameraPos) * osg::Matrix::rotate(_cameraRot));
+
+		// Set this transformation on the viewer's camera
+		viewer->getCamera()->setViewMatrix(transform->getMatrix());
+	}
+
+	void setViewer(osgViewer::Viewer* _viewer)
+	{
+		viewer = _viewer;
+	}
+
+	osg::Vec3 _cameraPos;
+	osg::Quat _cameraRot;
+	osgViewer::Viewer* viewer;
+};
+
+#include <osgGA/FlightManipulator>
+
+#include <osgGA/GUIEventHandler>
+
+class KeyHandler : public osgGA::GUIEventHandler
+{
+public:
+	KeyHandler()
+	{}
+
+	bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa, osg::Object*, osg::NodeVisitor*)
+	{
+		switch (ea.getEventType())
+		{
+			case(osgGA::GUIEventAdapter::KEYDOWN):
+			{
+				switch (ea.getKey())
+				{
+				case 'w':
+					printf("KEYDOWN W\n");
+					break;
+				case 'a':
+					printf("KEYDOWN A\n");
+
+					break;
+				case 's':
+					printf("KEYDOWN S\n");
+
+					break;
+				case 'd':
+					printf("KEYDOWN D\n");
+
+					break;
+				default:
+					break;
+				}
+
+			default:
+				break;
+			}
+
+			case(osgGA::GUIEventAdapter::KEYUP):
+			{
+				switch (ea.getKey())
+				{
+				case 'w':
+					printf("KEYUP W\n");
+					break;
+				case 'a':
+					printf("KEYUP A\n");
+					break;
+				case 's':
+					printf("KEYUP S\n");
+					break;
+				case 'd':
+					printf("KEYUP D\n");
+					break;
+				default:
+					break;
+				}
+
+				break;
+			}
+		}
+
+		return false;
+	}
+};
+
+#include <osgGA/DriveManipulator>
+
+class FirstPersonController : public osgGA::FirstPersonManipulator
+{
+public:
+	FirstPersonController(osgViewer::Viewer* inputViewer) : _viewer(inputViewer)
+	{
+		// Start frame timer
+		mainTimer.setStartTick();
+
+
+	}
+
+	// Overload unnecessary functions from FirstPersonManipulator
+	bool handleMouseWheel(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us)
+	{
+		return true;
+	};
+
+	//virtual bool performMovement();
+
+	// Override handle function for keyboard input
+	//virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter&);
+
+	//virtual void accept(osgGA::GUIEventHandlerVisitor& v)
+	//{
+	//	v.visit(*this);
+	//};
+
+protected:
+	osgViewer::Viewer* _viewer;
+	osg::Timer mainTimer;
+
+
+};
+
 int main(int argc, char** argv)
 {
 	TCHAR imgPath[] = L"C:/Games/Grand Theft Auto Vice City/models/gta3.img";
@@ -1236,8 +1415,22 @@ int main(int argc, char** argv)
 	//viewer.setCamera(firstPersonCamera);
 
 	// Set the camera manipulator for user input
-	viewer.setCameraManipulator(new osgGA::TrackballManipulator());
+	//viewer.setCameraManipulator(new osgGA::TrackballManipulator());
 	//viewer.setCameraManipulator(new osgGA::FirstPersonManipulator());
+	//viewer.setCameraManipulator(new osgGA::FlightManipulator());
+
+	osgGA::DriveManipulator* dm = new osgGA::DriveManipulator();
+	dm->setHomePosition(osg::Vec3(0,1000,1000),
+		osg::Vec3(0,1000,1000),
+		osg::Vec3(0,1,0)
+	);
+
+	viewer.setCameraManipulator(dm);
+
+	viewer.getCamera()->setProjectionMatrixAsPerspective(45.0f, 1920 / 1080, 1.0f, 400);
+
+	// Add the event handler for WASD controls
+	viewer.addEventHandler(new KeyHandler());
 
 	viewer.getCamera()->setClearColor(osg::Vec4(0.49804f, 0.78431f, 0.94510f, 1.0f));
 	viewer.setSceneData(root);
