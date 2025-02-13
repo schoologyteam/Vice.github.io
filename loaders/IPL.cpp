@@ -104,17 +104,17 @@ int IPL::Load(const char* filepath)
 				 * @see https://gtamods.com/wiki/Map_system
 				*/
 				item.x = posX;
-				item.y = posZ;
-				item.z = posY;
+				item.y = posY;
+				item.z = posZ;
 
-				item.scale[0] = scale[0]; // y
-				item.scale[1] = scale[2]; // z
-				item.scale[2] = scale[1]; // x
+				item.scale[0] = scale[0];
+				item.scale[1] = scale[1];
+				item.scale[2] = scale[2];
 
-				item.rotation[0] = rot[0]; // y
-				item.rotation[1] = rot[2]; // z
-				item.rotation[2] = rot[1]; // x
-				item.rotation[3] = rot[3]; // w
+				item.rotation[0] = rot[0];
+				item.rotation[1] = rot[1];
+				item.rotation[2] = rot[2];
+				item.rotation[3] = rot[3];
 
 				memcpy(&m_mapItems[i], &item, sizeof(struct mapItem));
 
