@@ -1057,7 +1057,8 @@ int main(int argc, char **argv)
 			osg::Matrix mat;
 			mat.identity();
 			mat.setTrans(osg::Vec3(x, z, y));
-			//mat.setRotate(osg::Quat(objectInfo.rotation[0], objectInfo.rotation[1], objectInfo.rotation[3], objectInfo.rotation[2]));
+			mat.setRotate(osg::Quat(objectInfo.rotation[0], objectInfo.rotation[2], objectInfo.rotation[1], objectInfo.rotation[3]));
+			mat.scale(osg::Vec3(objectInfo.scale[0], objectInfo.scale[2], objectInfo.scale[1]));
 			transform1->setMatrix(mat); // X Z Y
 			transform1->addChild(rootq.get());
 
