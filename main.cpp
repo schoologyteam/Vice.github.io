@@ -894,7 +894,8 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				geometry->getOrCreateStateSet()->setTextureAttributeAndModes(0, texture);
 
 				if (g_Textures[matIndex].IsAlpha) {
-					geometry->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+					geometry->getStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+					geometry->getStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
 				}
 
 			}
