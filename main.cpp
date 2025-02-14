@@ -461,10 +461,10 @@ osg::ref_ptr<osg::MatrixTransform> createWater()
 	return transform;
 }
 
-class CameraManipulator : public osgGA::StandardManipulator
+class MyCameraManipulator : public osgGA::FirstPersonManipulator
 {
 public:
-	CameraManipulator()
+	MyCameraManipulator()
 	{
 		// Set initial camera position
 		_cameraPos = osg::Vec3(0.0f, -10.0f, 5.0f);
@@ -519,6 +519,94 @@ public:
 	osg::Vec3 _cameraPos;
 	osg::Quat _cameraRot;
 	osgViewer::Viewer* viewer;
+};
+
+class CustomFirstPersonManipulator : public osgGA::FirstPersonManipulator
+{
+public:
+	CustomFirstPersonManipulator() : osgGA::FirstPersonManipulator()
+	{
+	
+	}
+
+	virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us) override {
+		switch (ea.getEventType()) {
+		case osgGA::GUIEventAdapter::KEYDOWN:
+			switch (ea.getKey()) {
+			case 'w': // Move forward
+				printf("KEYDOWN W \n");
+				moveForward();
+				return true;
+			case 's': // Move backward
+				moveBackward();
+				return true;
+			case 'a': // Move left
+				moveLeft();
+				return true;
+			case 'd': // Move right
+				moveRight();
+				return true;
+			}
+			break;
+		default:
+			break;
+		}
+		return osgGA::FirstPersonManipulator::handle(ea, us);
+	}
+	void setViewer(osgViewer::Viewer* _viewer)
+	{
+		viewer = _viewer;
+	}
+
+	osgViewer::Viewer* viewer;
+
+private:
+	osg::Vec3f eye = osg::Vec3f(0.0, -200.0, 0.0);
+	osg::Vec3f centre = osg::Vec3f(0.0, 0.0, 0.0);
+	osg::Vec3f up = osg::Vec3f(0.0, 0.0, 1.0);
+
+	void moveForward()
+	{
+		osg::Matrix view = viewer->getCamera()->getViewMatrix();
+		view.getLookAt(eye, centre, up);
+
+		//osg::Vec3d direction = viewer->getCamera()->getViewMatrix();
+		//direction.normalize();
+		//setByMatrix(getMatrix() * osg::Matrix::translate(direction * 0.1)); // Adjust speed as needed
+
+		osg::Vec3f actuallook = centre - eye;
+
+		actuallook = actuallook / (actuallook.length());
+
+		eye = eye + ((actuallook) * 10);
+		centre = centre + ((actuallook) * 10);
+
+		//viewer->getCamera()->setViewMatrixAsLookAt(eye, centre, osg::Z_AXIS);
+
+		setTransformation(eye, centre, osg::Z_AXIS);
+	}
+
+	void moveBackward() {
+		//osg::Vec3d direction = getViewMatrixAsLookAt().getLookAt() - getViewMatrixAsLookAt().getEye();
+		//direction.normalize();
+		//setByMatrix(getMatrix() * osg::Matrix::translate(-direction * 0.1)); // Adjust speed as needed
+	}
+
+	void moveLeft() {
+		//osg::Vec3d direction = getViewMatrixAsLookAt().getLookAt() - getViewMatrixAsLookAt().getEye();
+		//direction.normalize();
+		//osg::Vec3d left = direction ^ osg::Vec3d(0.0, 0.0, 1.0); // Cross product to get left direction
+		//left.normalize();
+		//setByMatrix(getMatrix() * osg::Matrix::translate(left * 0.1)); // Adjust speed as needed
+	}
+
+	void moveRight() {
+		//osg::Vec3d direction = getViewMatrixAsLookAt().getLookAt() - getViewMatrixAsLookAt().getEye();
+		//direction.normalize();
+		//osg::Vec3d right = osg::Vec3d(0.0, 0.0, 1.0) ^ direction; // Cross product to get right direction
+		//right.normalize();
+		//setByMatrix(getMatrix() * osg::Matrix::translate(right * 0.1)); // Adjust speed as needed
+	}
 };
 
 class KeyHandler : public osgGA::GUIEventHandler
@@ -585,6 +673,22 @@ public:
 		return false;
 	}
 };
+
+//#include <osgUtil/SceneView>
+//#include <osgUtil/Optimizer>
+//#include <osg/Occluder>
+//
+//void enableOcclusionCulling(osg::Node* node)
+//{
+//	osg::ref_ptr<osg::StateSet> stateSet = node->getOrCreateStateSet();
+//	stateSet->setMode(GL_DEPTH_TEST, osg::StateAttribute::ON);
+//
+//	// Here we can enable occlusion queries if needed
+//	// This is a simplified method, you may want to configure occlusion more thoroughly.
+//	osg::ref_ptr<osg::Occluder> occluder = new osg::Occluder;
+//	occluder->setOccludedState(GL_QUERY_NO_RESULTS);
+//	stateSet->setAttributeAndModes(occluder.get(), osg::StateAttribute::ON);
+//}
 
 int main(int argc, char** argv)
 {
@@ -822,16 +926,23 @@ int main(int argc, char** argv)
 	osgViewer::Viewer viewer;
 	//viewer.setUpViewInWindow(0, 0, 1920, 1080);
 
-	osg::ref_ptr<osgGA::DriveManipulator> dm = new osgGA::DriveManipulator();
-	dm->setHomePosition(osg::Vec3(0.0f, 100.0f, 1000.0f),
-		osg::Vec3(0.0f, 10.0f, 10.0f),
-		osg::Vec3(0.0f, 1.0f, 0.0f)
-	);
+	osg::ref_ptr<CustomFirstPersonManipulator> dm = new CustomFirstPersonManipulator();
+	dm->setViewer(&viewer);
+	osg::Vec3d eye(0.0, 0.0, 200.0);
+	osg::Vec3d center(1000.0, 0.0, 0.0);
+	osg::Vec3d up = osg::Z_AXIS;
+	dm->setHomePosition(eye, center, up);
 	viewer.setCameraManipulator(dm);
 
-	viewer.addEventHandler(new KeyHandler());
+	// viewer.addEventHandler(new KeyHandler());
 
 	viewer.getCamera()->setClearColor(osg::Vec4(0.49804f, 0.78431f, 0.94510f, 1.0f));
+	viewer.getCamera()->setProjectionMatrixAsPerspective(90.0f, 3840 / 2160, 0.1f, 1000.0f);
+	
+	viewer.getCamera()->setComputeNearFarMode(osg::CullSettings::COMPUTE_NEAR_FAR_USING_BOUNDING_VOLUMES);
+
+	//viewer.getCamera()->setViewMatrixAsLookAt(eye, center, up);
+
 	viewer.setSceneData(root);
 
 	printf("[Info] %s loaded\n", PROJECT_NAME);
