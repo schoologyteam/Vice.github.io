@@ -36,18 +36,13 @@
 
 struct GameMaterial {
 	char name[MAX_LENGTH_FILENAME]; /* without extension ".TXD" */
-	int size;
-	uint32_t width;
-	uint32_t height;
-	uint32_t dxtCompression;
-	uint32_t depth;
-	bool IsAlpha;
+	bool isAlpha;
 	osg::ref_ptr<osg::Image> image;
 };
 
 std::vector<IDE*> g_ideFile;
-std::vector<GameMaterial> g_Textures;
 std::vector<IPL*> g_ipl;
+std::vector<GameMaterial> g_Textures;
 
 template <typename T>
 void remove_duplicates(std::vector<T>& vec)
@@ -56,43 +51,17 @@ void remove_duplicates(std::vector<T>& vec)
 	vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
 }
 
-void LoadTXDFile(const char* filename)
+void loadTextures(char *bytes)
 {
-	printf("Loading txd file: %s\n", filename);
-
-	FILE* fp;
-	long lSize;
-	char* buffer;
-
-	fp = fopen(filename, "rb");
-	if (!fp) perror(filename), exit(1);
-
-	fseek(fp, 0L, SEEK_END);
-	lSize = ftell(fp);
-	rewind(fp);
-
-	/* allocate memory for entire content */
-	buffer = (char*)calloc(1, lSize + 1);
-	if (!buffer) fclose(fp), fputs("memory alloc fails", stderr), exit(1);
-
-	/* copy the file into the buffer */
-	if (1 != fread(buffer, lSize, 1, fp))
-		fclose(fp), free(buffer), fputs("entire read fails", stderr), exit(1);
-
-
-	fclose(fp);
-
-
 	size_t offset = 0;
+
 	TextureDictionary txd;
-	txd.read(buffer, &offset);
+	txd.read(bytes, &offset);
 
 	/* Loop for every texture in TXD file */
 	for (uint32_t i = 0; i < txd.texList.size(); i++) {
 		NativeTexture& t = txd.texList[i];
 		// printf("%s %s %d %d %d %d\n", t.name, t.maskName.c_str(), t.width[0], t.height[0], t.depth, t.rasterFormat);
-
-		printf("Loading texture %s\n", t.name);
 
 		uint8_t* texelsToArray = t.texels[0];
 		size_t len = t.dataSizes[0];
@@ -100,39 +69,30 @@ void LoadTXDFile(const char* filename)
 		struct GameMaterial m;
 		memcpy(m.name, t.name, sizeof(t.name)); /* without extension ".TXD" */
 
-		m.size = t.dataSizes[0];
-		m.width = t.width[0];
-		m.height = t.height[0];
-		m.dxtCompression = t.dxtCompression; /* DXT1, DXT3, DXT4 */
-		m.depth = t.depth;
-		m.IsAlpha = t.IsAlpha;
-
-		osg::ref_ptr<osg::Image> image = new osg::Image();
+		m.isAlpha = t.isAlpha;
 
 		GLenum format = GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
-		//blockSize = 8;
+
 		switch (t.dxtCompression)
 		{
 		default:
-		case 0:
-			format = GL_RGBA;
-			break;
-		case 1: // DXT1
+		case 1: /* DXT1 */
 			format = GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
-			if (t.IsAlpha) {
+			if (t.isAlpha) {
 				format = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
 			}
 			break;
-		case 3: // DXT3
+		case 3: /* DXT3 */
 			format = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
 			break;
-		case 5: // DXT5
+		case 5: /* DXT5 */
 			format = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
 			break;
 		}
 
+		osg::Image* image = new osg::Image();
 		image->setFileName(t.name);
-		image->allocateImage(m.width, m.height, m.depth, format, GL_UNSIGNED_BYTE);
+		image->allocateImage(t.width[0], t.height[0], t.depth, format, GL_UNSIGNED_BYTE);
 
 		uint8_t* data = reinterpret_cast<uint8_t*>(image->data());
 		memcpy(data, t.texels[0], len);
@@ -142,11 +102,50 @@ void LoadTXDFile(const char* filename)
 
 		g_Textures.push_back(m);
 	}
-
-	free(buffer);
 }
 
-void LoadAllTexturesFromTXDFile(IMG *pImgLoader, const char *filename)
+int LoadFileTXD(const char* filename)
+{
+	printf("[Info] Loading file: %s\n", filename);
+
+	FILE* fp;
+	long size;
+	char* buffer;
+
+	fp = fopen(filename, "rb");
+	if (!fp) {
+		perror(filename);
+	}
+
+	fseek(fp, 0L, SEEK_END);
+	size = ftell(fp);
+	rewind(fp);
+
+	buffer = (char*)calloc(1, size + 1);
+	if (!buffer) {
+		fclose(fp);
+		fputs("memory alloc fails", stderr);
+		return 1;
+	}
+
+	/* copy the file into the buffer */
+	if (1 != fread(buffer, size, 1, fp)) {
+		fclose(fp);
+		free(buffer);
+		fputs("entire read fails", stderr);
+		return 1;
+	}
+
+	fclose(fp);
+
+	loadTextures(buffer);
+
+	free(buffer);
+
+	return 0;
+}
+
+int LoadFileTXD(IMG *pImgLoader, const char *filename)
 {
 	char result_name[MAX_LENGTH_FILENAME + 4];
 	strcpy(result_name, filename);
@@ -155,72 +154,14 @@ void LoadAllTexturesFromTXDFile(IMG *pImgLoader, const char *filename)
 	int fileId = pImgLoader->GetFileIndexByName(result_name);
 	if (fileId == -1) {
 		printf("[Error] Cannot find file %s in IMG archive\n", result_name);
-		return;
+		return 1;
 	}
 
 	char *fileBuffer = (char*)pImgLoader->GetFileById(fileId);
 
-	size_t offset = 0;
-	TextureDictionary txd;
-	txd.read(fileBuffer, &offset);
+	loadTextures(fileBuffer);
 
-	/* Loop for every texture in TXD file */
-	for (uint32_t i = 0; i < txd.texList.size(); i++) {
-		NativeTexture &t = txd.texList[i];
-		// printf("%s %s %d %d %d %d\n", t.name, t.maskName.c_str(), t.width[0], t.height[0], t.depth, t.rasterFormat);
-		
-		uint8_t* texelsToArray = t.texels[0];
-		size_t len = t.dataSizes[0];
-
-		struct GameMaterial m;
-		memcpy(m.name, t.name, sizeof(t.name)); /* without extension ".TXD" */
-
-		m.size = t.dataSizes[0];
-		m.width = t.width[0];
-		m.height = t.height[0];
-		m.dxtCompression = t.dxtCompression; /* DXT1, DXT3, DXT4 */
-		m.depth = t.depth;
-		m.IsAlpha = t.IsAlpha;
-
-		// printf("[OK] Loaded texture name %s from TXD file %s\n", t.name, result_name);
-
-		osg::Image* image = new osg::Image();
-
-		GLenum format = GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
-
-		switch (t.dxtCompression)
-		{
-		default:
-		case 0:
-			format = GL_RGBA;
-			break;
-		case 1: // DXT1
-			format = GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
-			if (t.IsAlpha) {
-				format = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
-			}
-			break;
-		case 3: // DXT3
-			format = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
-			break;
-		case 5: // DXT5
-			format = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
-			break;
-		}
-
-		image->setFileName(t.name);
-		image->allocateImage(m.width, m.height, m.depth, format, GL_UNSIGNED_BYTE); // GL_BYTE
-
-		uint8_t* data = reinterpret_cast<uint8_t*>(image->data());
-		memcpy(data, t.texels[0], len);
-		//image->dirty();
-
-		m.image = image;
-		
-		g_Textures.push_back(m);
-	}
-
-	// free(fileBuffer);
+	return 0;
 }
 
 void checkOpenGLError(const std::string& functionName)
@@ -281,16 +222,14 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 	for (uint32_t index = 0; index < clump->m_numGeometries; index++) {
 		
 		osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-
-		std::vector<std::string> materIndex;
+		std::vector<std::string> modelTextures;
 
 		/* Load all materials */
 		uint32_t materials = clump->GetGeometryList()[index]->m_numMaterials;
+
 		for (uint32_t i = 0; i < materials; i++) {
-
 			Material* material = clump->GetGeometryList()[index]->materialList[i];
-			materIndex.push_back(material->texture.name);
-
+			modelTextures.push_back(material->texture.name);
 		}
 
 		/*for (uint32_t i = 0; i < clump->GetGeometryList()[index].vertexCount; i++) {
@@ -322,24 +261,14 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 			osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array;
 			osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
 
-			int v_count = clump->GetGeometryList()[index]->vertexCount;
+			int countVertices = clump->GetGeometryList()[index]->vertexCount;
 
-			
-			for (int v = 0; v < v_count; v++) {
+			for (int v = 0; v < countVertices; v++) {
 				float x = clump->GetGeometryList()[index]->vertices[v * 3 + 0];
 				float y = clump->GetGeometryList()[index]->vertices[v * 3 + 1];
 				float z = clump->GetGeometryList()[index]->vertices[v * 3 + 2];
-				/*
-				 * Flip coordinates. We use Left Handed Coordinates,
-				 * but GTA engine use own coordinate system:
-				 * X – east/west direction
-				 * Y – north/south direction
-				 * Z – up/down direction
-				 * @see https://gtamods.com/wiki/Map_system
-				*/
-				vertices->push_back(osg::Vec3(x, y, z));
 
-				
+				vertices->push_back(osg::Vec3(x, y, z));
 
 				if (clump->GetGeometryList()[index]->flags & FLAGS_NORMALS) {
 					float nx = clump->GetGeometryList()[index]->normals[v * 3 + 0];
@@ -347,7 +276,6 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 					float nz = clump->GetGeometryList()[index]->normals[v * 3 + 2];
 
 					normals->push_back(osg::Vec3(nx, ny, nz));
-					//normals->push_back(osg::Vec3(0.0, -1.0, 0.0));
 				}
 
 				float tx = 0.0f;
@@ -381,10 +309,11 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				clump->GetGeometryList()[index]->splits[i].m_numIndices
 			);
 
-			//indices->addElement((unsigned int)clump->GetGeometryList()[index]->splits[i].indices);
-
-			memcpy((void*)indices->getDataPointer(), (unsigned int*)clump->GetGeometryList()[index]->splits[i].indices,
-				sizeof(uint32_t) * clump->GetGeometryList()[index]->splits[i].m_numIndices);
+			memcpy(
+				(void*)indices->getDataPointer(), 
+				(unsigned int*)clump->GetGeometryList()[index]->splits[i].indices,
+				sizeof(uint32_t) * clump->GetGeometryList()[index]->splits[i].m_numIndices
+			);
 
 			geometry->setVertexArray(vertices.get());
 
@@ -416,7 +345,7 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 
 			// Find texture
 			for (int im = 0; im < g_Textures.size(); im++) {
-				if (strcmp(g_Textures[im].name, materIndex[materialIndex].c_str()) == 0) {
+				if (strcmp(g_Textures[im].name, modelTextures[materialIndex].c_str()) == 0) {
 					matIndex = im;
 					break;
 				}
@@ -437,7 +366,7 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 
 				geometry->getOrCreateStateSet()->setTextureAttributeAndModes(0, texture);
 
-				if (g_Textures[matIndex].IsAlpha) {
+				if (g_Textures[matIndex].isAlpha) {
 					geometry->getStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
 					geometry->getStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
 				}
@@ -696,9 +625,9 @@ int main(int argc, char** argv)
 	g_ideFile.push_back(ide);
 
 
-	LoadTXDFile("C:/Games/Grand Theft Auto Vice City/models/generic.txd");
-	LoadTXDFile("C:/Games/Grand Theft Auto Vice City/models/MISC.txd");
-	LoadTXDFile("C:/Games/Grand Theft Auto Vice City/models/particle.txd");
+	LoadFileTXD("C:/Games/Grand Theft Auto Vice City/models/generic.txd");
+	LoadFileTXD("C:/Games/Grand Theft Auto Vice City/models/MISC.txd");
+	LoadFileTXD("C:/Games/Grand Theft Auto Vice City/models/particle.txd");
 
 	/* Load from IDE file only archives textures */
 	std::vector<string> textures;
@@ -716,7 +645,7 @@ int main(int argc, char** argv)
 
 	/* Load archive textures (TXD files) */
 	for (int i = 0; i < textures.size(); i++) {
-		LoadAllTexturesFromTXDFile(imgLoader, textures[i].c_str());
+		LoadFileTXD(imgLoader, textures[i].c_str());
 	}
 
 	osg::ref_ptr<osg::Group> root = new osg::Group;
