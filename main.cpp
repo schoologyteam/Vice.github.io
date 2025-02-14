@@ -189,7 +189,7 @@ void checkOpenGLError(const std::string& functionName)
 	}
 }
 
-osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
+osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name)
 {
 	// checkOpenGLError("loadDFF");
 
@@ -409,11 +409,6 @@ osg::ref_ptr<osg::Geometry> createPlane(float width, float height)
 	texCoords->push_back(osg::Vec2(100.0f, 100.0f)); // Top-right
 	texCoords->push_back(osg::Vec2(0.0f, 100.0f)); // Top-left
 
-	/*texCoords->push_back(osg::Vec2(0.0f, 0.0f)); // Bottom-left
-	texCoords->push_back(osg::Vec2(1.0f, 0.0f)); // Bottom-right
-	texCoords->push_back(osg::Vec2(1.0f, 1.0f)); // Top-right
-	texCoords->push_back(osg::Vec2(0.0f, 1.0f)); // Top-left*/
-
 	geometry->setTexCoordArray(0, texCoords.get());
 
 	// Define the face (triangle) using the vertex indices
@@ -432,6 +427,38 @@ osg::ref_ptr<osg::Geometry> createPlane(float width, float height)
 	geometry->addPrimitiveSet(indices);
 
 	return geometry;
+}
+
+osg::ref_ptr<osg::MatrixTransform> createWater()
+{
+	osg::ref_ptr<osg::Geometry> plane = createPlane(5000.0f, 5000.0f);
+	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+	
+	osg::ref_ptr<osg::MatrixTransform> transform = new osg::MatrixTransform();
+
+	osg::Matrix pos;
+	pos.setTrans(osg::Vec3(0.0f, 0.0f, 5.0f));
+
+	transform->setMatrix(pos);
+
+	osg::ref_ptr<osg::Texture2D> texture = new osg::Texture2D;
+	for (int g = 0; g < g_Textures.size(); g++) {
+		if (strcmp(g_Textures[g].name, "waterclear256") == 0) {
+			texture->setImage(g_Textures[g].image);
+			break;
+		}
+	}
+
+	// Set texture wrapping modes
+	texture->setWrap(osg::Texture::WRAP_S, osg::Texture::WrapMode::REPEAT); // Wrap horizontally
+	texture->setWrap(osg::Texture::WRAP_T, osg::Texture::WrapMode::REPEAT); // Wrap vertically
+
+	plane->getOrCreateStateSet()->setTextureAttributeAndModes(0, texture);
+
+	geode->addDrawable(plane);
+	transform->addChild(geode);
+
+	return transform;
 }
 
 class CameraManipulator : public osgGA::StandardManipulator
@@ -684,7 +711,7 @@ int main(int argc, char** argv)
 			float y = objectInfo.y;
 			float z = objectInfo.z;
 
-			osg::ref_ptr<osg::Group> rootq = loadDFF(imgLoader, g_ipl[i]->GetItem(j).modelName, g_ipl[i]->GetItem(j).id);
+			osg::ref_ptr<osg::Group> rootq = loadDFF(imgLoader, g_ipl[i]->GetItem(j).modelName);
 
 			osg::ref_ptr<osg::MatrixTransform> transform1 = new osg::MatrixTransform;
 			osg::Matrix mat;
@@ -707,36 +734,8 @@ int main(int argc, char** argv)
 		}
 	}
 
-
-	osg::ref_ptr<osg::Geometry> plane = createPlane(5000.0f, 5000.0f);
-	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-	geode->addDrawable(plane);
-
-	osg::ref_ptr<osg::MatrixTransform> arTransformA = new osg::MatrixTransform();
-	osg::Matrix pos;
-	pos.setTrans(osg::Vec3(0.0f, 0.0f, 5.0f));
-	arTransformA->setMatrix(pos);
-
-	osg::ref_ptr<osg::Texture2D> texture = new osg::Texture2D;
-	for (int g = 0; g < g_Textures.size(); g++) {
-		if (strcmp(g_Textures[g].name, "waterclear256") == 0) {
-			texture->setImage(g_Textures[g].image);
-			break;
-		}
-	}
-
-	// Set texture wrapping modes
-	texture->setWrap(osg::Texture::WRAP_S, osg::Texture::WrapMode::REPEAT); // Wrap horizontally
-	texture->setWrap(osg::Texture::WRAP_T, osg::Texture::WrapMode::REPEAT); // Wrap vertically
-
-	plane->getOrCreateStateSet()->setTextureAttributeAndModes(0, texture);
-	
-	arTransformA->addChild(geode);
-
-	//gplane->addDrawable(arTransformA);
-
-
-	root->addChild(arTransformA);
+	osg::ref_ptr<osg::MatrixTransform> water = createWater();
+	root->addChild(water);
 
 	/*
 	osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
