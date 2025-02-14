@@ -138,20 +138,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Camera.cpp" />
-    <ClCompile Include="Frustum.cpp" />
-    <ClCompile Include="Input.cpp" />
     <ClCompile Include="loaders\AtomicList.cpp" />
     <ClCompile Include="loaders\FrameList.cpp" />
     <ClCompile Include="loaders\Geometry.cpp" />
     <ClCompile Include="loaders\IDE.cpp" />
     <ClCompile Include="loaders\IPL.cpp" />
     <ClCompile Include="loaders\LightList.cpp" />
-    <ClCompile Include="Mesh.cpp" />
-    <ClCompile Include="DXRender.cpp" />
-    <ClCompile Include="Model.cpp" />
-    <ClCompile Include="Utils.cpp" />
-    <ClCompile Include="Window.cpp" />
     <ClCompile Include="loaders\Clump.cpp" />
     <ClCompile Include="loaders\IMG.cpp" />
     <ClCompile Include="main.cpp" />
@@ -160,41 +152,15 @@
     <ClCompile Include="uvanim.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Camera.hpp" />
-    <ClInclude Include="Frustum.h" />
-    <ClInclude Include="Input.hpp" />
     <ClInclude Include="loaders\AtomicList.h" />
     <ClInclude Include="loaders\FrameList.h" />
     <ClInclude Include="loaders\Geometry.h" />
     <ClInclude Include="loaders\IDE.hpp" />
     <ClInclude Include="loaders\IPL.hpp" />
     <ClInclude Include="loaders\LightList.h" />
-    <ClInclude Include="Mesh.hpp" />
-    <ClInclude Include="DXRender.hpp" />
-    <ClInclude Include="Model.h" />
-    <ClInclude Include="Utils.hpp" />
-    <ClInclude Include="Window.hpp" />
     <ClInclude Include="loaders\Clump.h" />
     <ClInclude Include="loaders\IMG.hpp" />
     <ClInclude Include="renderware.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="shaders\pixel_shader.hlsl">
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4.0</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">4.0</ShaderModel>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
-    </FxCompile>
-    <FxCompile Include="shaders\vertex_shader.hlsl">
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4.0</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">4.0</ShaderModel>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
-    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />

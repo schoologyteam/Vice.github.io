@@ -16,9 +16,6 @@
     <Filter Include="Source Files\renderware">
       <UniqueIdentifier>{3abdc80a-c7a8-4d18-9fa0-1a71a85d049e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\shaders">
-      <UniqueIdentifier>{80043fb7-6c00-40c1-8a5a-4c5a5480e7be}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Header Files\loaders">
       <UniqueIdentifier>{97ba0d90-a94c-498b-8053-a4b333776d89}</UniqueIdentifier>
     </Filter>
@@ -42,24 +39,6 @@
     <ClCompile Include="uvanim.cpp">
       <Filter>Source Files\renderware</Filter>
     </ClCompile>
-    <ClCompile Include="Input.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Camera.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="DXRender.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Mesh.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Window.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Utils.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="loaders\IMG.cpp">
       <Filter>Source Files\loaders</Filter>
     </ClCompile>
@@ -78,12 +57,6 @@
     <ClCompile Include="loaders\Geometry.cpp">
       <Filter>Source Files\loaders</Filter>
     </ClCompile>
-    <ClCompile Include="Frustum.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Model.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="loaders\IPL.cpp">
       <Filter>Source Files\loaders</Filter>
     </ClCompile>
@@ -92,24 +65,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Utils.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DXRender.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Mesh.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Input.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Camera.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Window.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="loaders\Clump.h">
       <Filter>Header Files\loaders</Filter>
     </ClInclude>
@@ -131,26 +86,12 @@
     <ClInclude Include="renderware.h">
       <Filter>Header Files\renderware</Filter>
     </ClInclude>
-    <ClInclude Include="Frustum.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Model.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="loaders\IPL.hpp">
       <Filter>Header Files\loaders</Filter>
     </ClInclude>
     <ClInclude Include="loaders\IDE.hpp">
       <Filter>Header Files\loaders</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="shaders\pixel_shader.hlsl">
-      <Filter>Source Files\shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\vertex_shader.hlsl">
-      <Filter>Source Files\shaders</Filter>
-    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md">

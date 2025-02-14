@@ -1,6 +1,9 @@
 #include <string.h>
 #include <stdio.h>
-#include <algorithm>
+#include <iostream>
+#include <math.h>
+#include <stdlib.h>
+#include <assert.h>
 
 #include <windows.h>
 
@@ -9,38 +12,27 @@
 #include "loaders/IMG.hpp"
 #include "loaders/IPL.hpp"
 #include "loaders/IDE.hpp"
-#include "Mesh.hpp"
-#include "DXRender.hpp"
-#include "Camera.hpp"
-#include "Input.hpp"
-#include "Window.hpp"
-#include "Utils.hpp"
-#include "Frustum.h"
-#include "Model.h"
+
+#include <osgViewer/Viewer>
+#include <osg/Material>
+#include <osg/Texture2D>
+#include <osg/MatrixTransform>
+#include <osg/ShapeDrawable>
+#include <osg/Geometry>
+#include <osg/Geode>
+#include <osg/PolygonMode>
+#include <osgGA/TrackballManipulator>
+#include <osgGA/FirstPersonManipulator>
+#include <osgGA/FlightManipulator>
+#include <osgGA/DriveManipulator>
+#include <osgGA/GUIEventHandler>
+#include <osg/Timer>
+#include <osgText/Text>
 
 #define PROJECT_NAME "openvice"
 #define WINDOW_WIDTH 1920
 #define WINDOW_HEIGHT 1080
 #define WINDOW_TITLE L"openvice"
-
-int frameCount = 0;
-Frustum g_frustum;
-
-#include <osg/Material>
-#include <osg/Texture2D>
-#include <osg/MatrixTransform>
-#include <osgDB/ReadFile>
-
-#include <osg/ShapeDrawable>
-#include <osgViewer/Viewer>
-#include <osg/Geometry>
-#include <osg/Geode>
-#include <osg/PolygonMode>
-
-#include "ReaderWriterDDS.cpp"
-
-osg::Texture2D* gtexture = NULL;
-osg::Image* gimage = NULL;
 
 struct GameMaterial {
 	char name[MAX_LENGTH_FILENAME]; /* without extension ".TXD" */
@@ -59,7 +51,6 @@ struct ModelMaterial {
 	int index;
 };
 
-std::vector<Model*> g_models;
 std::vector<IDE*> g_ideFile;
 std::vector<GameMaterial> g_Textures;
 std::vector<IPL*> g_ipl;
@@ -71,62 +62,8 @@ void remove_duplicates(std::vector<T>& vec)
 	vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
 }
 
-
-// uint8_t*
-char* manualCreateDds(uint8_t* pDataSourceDDS, size_t fileSizeDDS, uint32_t width, uint32_t height, uint32_t dxtCompression, uint32_t depth)
-{
-	/* Manual create DDS file */
-	struct DDS_File dds;
-
-	dds.dwMagic = DDS_MAGIC;
-	dds.header.size = sizeof(struct DDS_HEADER);
-	dds.header.flags = 0; // 0
-	dds.header.width = width;
-	dds.header.height = height;
-	dds.header.pitchOrLinearSize = width * height;
-	dds.header.mipMapCount = 0;
-	dds.header.ddspf.size = sizeof(struct DDS_PIXELFORMAT);
-	dds.header.ddspf.flags = DDPF_FOURCC; // DDS_PAL8; // TODO: use DDS_HEADER_FLAGS_VOLUME for depth
-	//dds.header.depth = depth; // TODO: is working?
-	switch (dxtCompression) {
-	default:
-	case 1:
-		dds.header.ddspf.fourCC = FOURCC_DXT1;
-		break;
-	case 3:
-		dds.header.ddspf.fourCC = FOURCC_DXT3;
-		break;
-	case 4:
-		dds.header.ddspf.fourCC = FOURCC_DXT4;
-		break;
-	}
-	// ddsd.ddpfPixelFormat.dwFourCC = bpp == 24 ? FOURCC_DXT1 : FOURCC_DXT5;
-
-	size_t len = sizeof(dds) + fileSizeDDS;
-	// было в uint8_t*
-	char* buf = (char*)malloc(len);
-	memcpy(buf, &dds, sizeof(dds));
-	memcpy(
-		buf + sizeof(dds), // dds + offset
-		pDataSourceDDS,
-		fileSizeDDS
-	);
-
-	return buf;
-}
-
-struct membuf : std::streambuf
-{
-	membuf(char* begin, char* end) {
-		this->setg(begin, begin, end);
-	}
-};
-
-
 void LoadTXDFile(const char* filename)
 {
-	return;
-
 	printf("Loading txd file: %s\n", filename);
 
 	FILE* fp;
@@ -148,7 +85,6 @@ void LoadTXDFile(const char* filename)
 	if (1 != fread(buffer, lSize, 1, fp))
 		fclose(fp), free(buffer), fputs("entire read fails", stderr), exit(1);
 
-	/* do your work here, buffer is a string contains the whole text */
 
 	fclose(fp);
 
@@ -170,11 +106,6 @@ void LoadTXDFile(const char* filename)
 		struct GameMaterial m;
 		memcpy(m.name, t.name, sizeof(t.name)); /* without extension ".TXD" */
 
-		/* TODO: Replace copy to buffer to best solution */
-		/* TODO: Free memory */
-		m.source = (uint8_t*)malloc(len);
-		memcpy(m.source, texelsToArray, len);
-
 		m.size = t.dataSizes[0];
 		m.width = t.width[0];
 		m.height = t.height[0];
@@ -182,135 +113,7 @@ void LoadTXDFile(const char* filename)
 		m.depth = t.depth;
 		m.IsAlpha = t.IsAlpha;
 
-
-		t.decompressDxt();
-
-		// printf("[OK] Loaded texture name %s from TXD file %s\n", t.name, result_name);
-
-
-		// manual create DDS file from buffer
-		//char* fileBuf = manualCreateDds(m.source, len, m.width, m.height, m.dxtCompression, m.depth);
-
-		// convert buffer to istream
-		//int size_t = sizeof(struct DDS_File) + m.size;
-		//std::vector<uint8_t> data(fileBuf[0], fileBuf[len]);
-		//imemstream stream(reinterpret_cast<const char*>(data.data()), data.size());
-
-
-
-		//membuf sbuf(fileBuf, fileBuf + len + sizeof(struct DDS_File));
-		//std::istream in(&sbuf);
-
-		// load dds file from istream
-		osg::Image* image = new osg::Image();  //ReadDDSFile(in, false);
-
-		image->allocateImage(m.width, m.height, 1, GL_RGB, GL_UNSIGNED_BYTE);
-
-		// Set data
-		float* data = reinterpret_cast<float*>(image->data());
-		/* ...data processing... */
-		memcpy(data, m.source, len);
-		//image->dirty();
-
-		if (image == NULL) {
-			printf("image = NULL \n");
-		}
-		image->setFileName(t.name);
-
-
-		m.image = image;
-
-		g_Textures.push_back(m);
-
-
-
-		/*std::string te = t.name;
-		te += ".dds";
-		ofstream out(te);
-		if (!out)
-		{
-			cout << "Cannot open output file\n";
-			//return 1;
-		}
-		out.write((char*)fileBuf, len);
-		out.close();*/
-
-
-	}
-
-
-	free(buffer);
-}
-
-void LoadAllTexturesFromTXDFile(IMG *pImgLoader, const char *filename)
-{
-	char result_name[MAX_LENGTH_FILENAME + 4];
-	strcpy(result_name, filename);
-	strcat(result_name, ".txd");
-
-	int fileId = pImgLoader->GetFileIndexByName(result_name);
-	if (fileId == -1) {
-		printf("[Error] Cannot find file %s in IMG archive\n", result_name);
-		return;
-	}
-
-	// printf("[Info] Loading file %s from IMG archive\n", filename);
-
-	char *fileBuffer = (char*)pImgLoader->GetFileById(fileId);
-
-	size_t offset = 0;
-	TextureDictionary txd;
-	txd.read(fileBuffer, &offset);
-
-	/* Loop for every texture in TXD file */
-	for (uint32_t i = 0; i < txd.texList.size(); i++) {
-		NativeTexture &t = txd.texList[i];
-		// printf("%s %s %d %d %d %d\n", t.name, t.maskName.c_str(), t.width[0], t.height[0], t.depth, t.rasterFormat);
-		
-		uint8_t* texelsToArray = t.texels[0];
-		size_t len = t.dataSizes[0];
-
-		struct GameMaterial m;
-		memcpy(m.name, t.name, sizeof(t.name)); /* without extension ".TXD" */
-
-		/* TODO: Replace copy to buffer to best solution */
-		/* TODO: Free memory */
-		m.source = (uint8_t *)malloc(len);
-		memcpy(m.source, texelsToArray, len);
-
-		m.size = t.dataSizes[0];
-		m.width = t.width[0];
-		m.height = t.height[0];
-		m.dxtCompression = t.dxtCompression; /* DXT1, DXT3, DXT4 */
-		m.depth = t.depth;
-		m.IsAlpha = t.IsAlpha;
-
-		// printf("[OK] Loaded texture name %s from TXD file %s\n", t.name, result_name);
-
-
-
-		// t.decompressDxt();
-		// t.convertTo32Bit();
-
-		// printf("[OK] Loaded texture name %s from TXD file %s\n", t.name, result_name);
-
-
-		// manual create DDS file from buffer
-		//char* fileBuf = manualCreateDds(m.source, len, m.width, m.height, m.dxtCompression, m.depth);
-
-		// convert buffer to istream
-		//int size_t = sizeof(struct DDS_File) + m.size;
-		//std::vector<uint8_t> data(fileBuf[0], fileBuf[len]);
-		//imemstream stream(reinterpret_cast<const char*>(data.data()), data.size());
-
-
-
-		//membuf sbuf(fileBuf, fileBuf + len + sizeof(struct DDS_File));
-		//std::istream in(&sbuf);
-
-		// load dds file from istream
-		osg::Image* image = new osg::Image();  //ReadDDSFile(in, false);
-
+		osg::ref_ptr<osg::Image> image = new osg::Image();
 
 		GLenum format = GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
 		//blockSize = 8;
@@ -334,316 +137,100 @@ void LoadAllTexturesFromTXDFile(IMG *pImgLoader, const char *filename)
 			break;
 		}
 
-		
+		image->setFileName(t.name);
+		image->allocateImage(m.width, m.height, m.depth, format, GL_UNSIGNED_BYTE);
 
-		image->allocateImage(m.width, m.height, m.depth, format, GL_UNSIGNED_BYTE); // GL_BYTE
-
-		// Set data
 		uint8_t* data = reinterpret_cast<uint8_t*>(image->data());
-		/* ...data processing... */
 		memcpy(data, t.texels[0], len);
 		//image->dirty();
 
-		if (image == NULL) {
-			printf("image = NULL \n");
-		}
-		image->setFileName(t.name);
-
-
 		m.image = image;
-		
-		// manual create DDS file from buffer
-		//char *fileBuf = manualCreateDds(m.source, len, m.width, m.height, m.dxtCompression, m.depth);
 
-		// convert buffer to istream
-		//int size_t = sizeof(struct DDS_File) + m.size;
-		//std::vector<uint8_t> data(fileBuf[0], fileBuf[len]);
-		//imemstream stream(reinterpret_cast<const char*>(data.data()), data.size());
-		
-		
-		
-		//membuf sbuf(fileBuf, fileBuf + len + sizeof (struct DDS_File));
-		//std::istream in(&sbuf);
-
-		// load dds file from istream
-		//osg::Image * image = ReadDDSFile(in, false);
-		//if (image == NULL) {
-		//	printf("image = NULL \n");
-		//}
-		//image->setFileName(t.name);
-
-	
 		g_Textures.push_back(m);
-
-
 	}
 
-	//free(fileBuffer);
+	free(buffer);
 }
 
-
-int LoadFileDFFWithName(IMG* pImgLoader, DXRender* render, char *name, int modelId)
+void LoadAllTexturesFromTXDFile(IMG *pImgLoader, const char *filename)
 {
-	return 1;
-
-	/* Skip LOD files */
-	if (strstr(name, "LOD") != NULL) {
-		return 0;
-	}
-
 	char result_name[MAX_LENGTH_FILENAME + 4];
-	strcpy(result_name, name);
-	strcat(result_name, ".dff");
+	strcpy(result_name, filename);
+	strcat(result_name, ".txd");
 
 	int fileId = pImgLoader->GetFileIndexByName(result_name);
 	if (fileId == -1) {
-		return 1;
+		printf("[Error] Cannot find file %s in IMG archive\n", result_name);
+		return;
 	}
 
-	char* fileBuffer = (char*)pImgLoader->GetFileById(fileId);
+	char *fileBuffer = (char*)pImgLoader->GetFileById(fileId);
 
-	Clump* clump = new Clump();
-	clump->Read(fileBuffer);
+	size_t offset = 0;
+	TextureDictionary txd;
+	txd.read(fileBuffer, &offset);
 
-	Model* model = new Model();
-	model->SetId(modelId);
-	model->SetName(name);
+	/* Loop for every texture in TXD file */
+	for (uint32_t i = 0; i < txd.texList.size(); i++) {
+		NativeTexture &t = txd.texList[i];
+		// printf("%s %s %d %d %d %d\n", t.name, t.maskName.c_str(), t.width[0], t.height[0], t.depth, t.rasterFormat);
+		
+		uint8_t* texelsToArray = t.texels[0];
+		size_t len = t.dataSizes[0];
 
-	for (uint32_t index = 0; index < clump->m_numGeometries; index++) {
+		struct GameMaterial m;
+		memcpy(m.name, t.name, sizeof(t.name)); /* without extension ".TXD" */
 
-		std::vector<ModelMaterial> materIndex;
+		m.size = t.dataSizes[0];
+		m.width = t.width[0];
+		m.height = t.height[0];
+		m.dxtCompression = t.dxtCompression; /* DXT1, DXT3, DXT4 */
+		m.depth = t.depth;
+		m.IsAlpha = t.IsAlpha;
 
-		/* Load all materials */
-		uint32_t materials = clump->GetGeometryList()[index]->m_numMaterials;
-		for (uint32_t i = 0; i < materials; i++) {
-			Material *material = clump->GetGeometryList()[index]->materialList[i];
+		// printf("[OK] Loaded texture name %s from TXD file %s\n", t.name, result_name);
 
-			struct ModelMaterial matInd;
-			std::string b = material->texture.name;
-			//matInd.materialName = b;
-			memcpy(matInd.materialName, b.c_str(), sizeof(matInd.materialName));
-			matInd.index = i;
+		osg::Image* image = new osg::Image();
 
-			materIndex.push_back(matInd);
+		GLenum format = GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
+
+		switch (t.dxtCompression)
+		{
+		default:
+		case 0:
+			format = GL_RGBA;
+			break;
+		case 1: // DXT1
+			format = GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
+			if (t.IsAlpha) {
+				format = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
+			}
+			break;
+		case 3: // DXT3
+			format = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
+			break;
+		case 5: // DXT5
+			format = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+			break;
 		}
 
-		/*for (uint32_t i = 0; i < clump->GetGeometryList()[index].vertexCount; i++) {
+		image->setFileName(t.name);
+		image->allocateImage(m.width, m.height, m.depth, format, GL_UNSIGNED_BYTE); // GL_BYTE
 
-			// Load texture coordinates model
-			if (clump->GetGeometryList()[index].flags & FLAGS_TEXTURED
-				// || clump->GetGeometryList()[index].flags & FLAGS_TEXTURED2
-				) {
-				for (uint32_t j = 0; j < 1 / clump->GetGeometryList()[index].numUVs /; j++) { / insert now FLAGS_TEXTURED /
+		uint8_t* data = reinterpret_cast<uint8_t*>(image->data());
+		memcpy(data, t.texels[0], len);
+		//image->dirty();
 
-					float tx = clump->GetGeometryList()[index].texCoords[j][i * 2 + 0];
-					float ty = clump->GetGeometryList()[index].texCoords[j][i * 2 + 1];
-
-					modelTextureCoord.push_back(tx);
-					modelTextureCoord.push_back(ty);
-				}
-			}
-		}*/
-
-		/* Loop for every mesh */
-		for (uint32_t i = 0; i < clump->GetGeometryList()[index]->splits.size(); i++) {
-
-			int v_count = clump->GetGeometryList()[index]->vertexCount;
-
-			/* Save to data for create vertex buffer (x,y,z tx,ty) */
-			// TODO: Free memory
-			float *meshVertexData = (float*)malloc(sizeof(float) * v_count * 5);
-
-			for (int v = 0; v < v_count; v++) {
-				float x = clump->GetGeometryList()[index]->vertices[v * 3 + 0];
-				float y = clump->GetGeometryList()[index]->vertices[v * 3 + 1];
-				float z = clump->GetGeometryList()[index]->vertices[v * 3 + 2];
-
-				float tx = 0.0f;
-				float ty = 0.0f;
-				if (clump->GetGeometryList()[index]->flags & FLAGS_TEXTURED) {
-					tx = clump->GetGeometryList()[index]->texCoords[0][v * 2 + 0];
-					ty = clump->GetGeometryList()[index]->texCoords[0][v * 2 + 1];
-				}
-
-				/*
-				 * Flip coordinates. We use Left Handed Coordinates,
-				 * but GTA engine use own coordinate system:
-				 * X Ц east/west direction
-				 * Y Ц north/south direction
-				 * Z Ц up/down direction
-				 * @see https://gtamods.com/wiki/Map_system
-				*/
-				meshVertexData[v * 5 + 0] = x;
-				meshVertexData[v * 5 + 1] = z;
-				meshVertexData[v * 5 + 2] = y;
-
-				meshVertexData[v * 5 + 3] = tx;
-				meshVertexData[v * 5 + 4] = ty;
-			}
-
-			D3D_PRIMITIVE_TOPOLOGY topology =
-				clump->GetGeometryList()[index]->faceType == FACETYPE_STRIP
-				? D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP
-				: D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-
-			Mesh* mesh = new Mesh();
-
-			mesh->Init(
-				render, 
-				meshVertexData,
-				v_count * 5,
-				(unsigned int*)clump->GetGeometryList()[index]->splits[i].indices,
-				clump->GetGeometryList()[index]->splits[i].m_numIndices,
-				topology
-			);
-
-			uint32_t materialIndex = clump->GetGeometryList()[index]->splits[i].matIndex;
-
-			int matIndex = -1;
-
-			// Find texture by index
-			for (int ib = 0; ib < materIndex.size(); ib++) {
-
-				if (materialIndex == materIndex[ib].index) {
-
-					for (int im = 0; im < g_Textures.size(); im++) {
-						if (strcmp(g_Textures[im].name, materIndex[ib].materialName) == 0) {
-							matIndex = im;
-							break;
-						}
-					}
-
-				}
-			}
-
-			if (matIndex != -1) {
-				mesh->SetAlpha(g_Textures[matIndex].IsAlpha);
-				
-				if (g_Textures[matIndex].IsAlpha) {
-					model->SetAlpha(true);
-				}
-
-				mesh->SetDataDDS(
-					render,
-					g_Textures[matIndex].source,
-					g_Textures[matIndex].size,
-					g_Textures[matIndex].width,
-					g_Textures[matIndex].height,
-					g_Textures[matIndex].dxtCompression,
-					g_Textures[matIndex].depth
-				);
-			}
-
-			model->AddMesh(mesh);
-		}
+		m.image = image;
+		
+		g_Textures.push_back(m);
 	}
 
-	clump->Clear();
-	delete clump;
-
-	g_models.push_back(model);
-
-	return 0;
+	// free(fileBuffer);
 }
 
-
-
-
-inline float Distance(XMVECTOR v1, XMVECTOR v2)
+void checkOpenGLError(const std::string& functionName)
 {
-	return XMVectorGetX(XMVector3Length(XMVectorSubtract(v1, v2)));
-}
-inline float DistanceSquared(XMVECTOR v1, XMVECTOR v2)
-{
-	return XMVectorGetX(XMVector3LengthSq(XMVectorSubtract(v1, v2)));
-}
-
-struct rend {
-	int id;
-	int dist;
-
-	struct mapItem obinfo;
-};
-
-std::vector<struct rend> gNeedRender;
-
-// Comparator function
-bool comp(const struct rend left, const struct rend right) {
-	return left.dist > right.dist;
-}
-
-#define MAX_RENDER_DISTANCE 100
-
-void RenderScene(DXRender *render, Camera *camera)
-{
-	g_frustum.ConstructFrustum(400.0f, camera->GetProjection(), camera->GetView());
-
-	render->RenderStart();
-
-	int renderCount = 0;
-
-	for (int i = 0; i < g_ipl.size(); i++) {
-		int count = g_ipl[i]->GetCountObjects();
-
-		for (int j = 0; j < count; j++) {
-			struct mapItem objectInfo = g_ipl[i]->GetItem(j);
-
-			float x = objectInfo.x;
-			float y = objectInfo.y;
-			float z = objectInfo.z;
-
-			XMVECTOR cameraPos = camera->GetPosition();
-
-			float distance = DistanceSquared(cameraPos, XMVectorSet(x, y, z, 0));
-
-			if ((int)distance < MAX_RENDER_DISTANCE * 1000) {
-				struct rend rr;
-				rr.id = objectInfo.id;
-				rr.dist = (int)distance;
-				rr.obinfo = objectInfo;
-				gNeedRender.push_back(rr);
-			}
-		}
-	}
-
-	// Sort vector in order
-	std::sort(gNeedRender.begin(), gNeedRender.end(), comp);
-
-	for (int m = 0; m < g_models.size(); m++) {
-		Model* model = g_models[m];
-
-		for (int i = 0; i < gNeedRender.size(); i++) {
-			struct mapItem objectInfo = gNeedRender[i].obinfo;
-
-			if (gNeedRender[i].id == model->GetId()) {
-				bool renderModel = g_frustum.CheckSphere(objectInfo.x, objectInfo.y, objectInfo.z, 50.0f);
-
-				if (renderModel) {
-					model->SetPosition(
-						objectInfo.x, objectInfo.y, objectInfo.z,
-						objectInfo.scale[0], objectInfo.scale[1], objectInfo.scale[2],
-						objectInfo.rotation[0], objectInfo.rotation[1], objectInfo.rotation[2], objectInfo.rotation[3]
-					);
-					model->Render(render, camera);
-
-					renderCount++;
-				}
-			}
-		}
-	}
-
-	printf("[Info] Rendered meshes: %d\n", renderCount);
-
-	render->RenderEnd();
-
-	gNeedRender.clear();
-}
-
-#include <iostream>
-#include <GL/gl.h>
-
-// Function to check for OpenGL errors
-void checkOpenGLError(const std::string& functionName) {
 	GLenum error = glGetError();
 	while (error != GL_NO_ERROR) {
 		switch (error) {
@@ -676,6 +263,10 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 		return NULL;
 	}
 
+	if (strstr(name, "lod") != NULL) {
+		return NULL;
+	}
+
 	char result_name[MAX_LENGTH_FILENAME + 4];
 	strcpy(result_name, name);
 	strcat(result_name, ".dff");
@@ -686,7 +277,6 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 	}
 
 	char* fileBuffer = (char*)imgLoader->GetFileById(fileId);
-
 
 	osg::ref_ptr<osg::Group> root = new osg::Group;
 
@@ -907,16 +497,11 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 		root->addChild(geode.get());
 	}
 
-	
-
-	//clump->Clear();
-	//delete clump;
+	clump->Clear();
+	delete clump;
 
 	return root;
 }
-
-#include <osgGA/TrackballManipulator>
-#include <osgGA/FirstPersonManipulator>
 
 osg::ref_ptr<osg::Geometry> createPlane(float width, float height) {
 	osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry;
@@ -965,20 +550,6 @@ osg::ref_ptr<osg::Geometry> createPlane(float width, float height) {
 
 	return geometry;
 }
-
-#include <osgGA/FirstPersonManipulator>
-
-#include <osg/MatrixTransform>
-#include <osgGA/FirstPersonManipulator>
-#include <osgViewer/Viewer>
-#include <osgGA/GUIEventHandler>
-#include <osg/Timer>
-#include <osgText/Text>
-#include <iostream>
-#include <math.h>
-#include <stdlib.h>
-#include <stdio.h>
-
 
 class CameraManipulator : public osgGA::StandardManipulator
 {
@@ -1039,10 +610,6 @@ public:
 	osg::Quat _cameraRot;
 	osgViewer::Viewer* viewer;
 };
-
-#include <osgGA/FlightManipulator>
-
-#include <osgGA/GUIEventHandler>
 
 class KeyHandler : public osgGA::GUIEventHandler
 {
@@ -1109,41 +676,7 @@ public:
 	}
 };
 
-#include <osgGA/DriveManipulator>
 
-class FirstPersonController : public osgGA::FirstPersonManipulator
-{
-public:
-	FirstPersonController(osgViewer::Viewer* inputViewer) : _viewer(inputViewer)
-	{
-		// Start frame timer
-		mainTimer.setStartTick();
-
-
-	}
-
-	// Overload unnecessary functions from FirstPersonManipulator
-	bool handleMouseWheel(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us)
-	{
-		return true;
-	};
-
-	//virtual bool performMovement();
-
-	// Override handle function for keyboard input
-	//virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter&);
-
-	//virtual void accept(osgGA::GUIEventHandlerVisitor& v)
-	//{
-	//	v.visit(*this);
-	//};
-
-protected:
-	osgViewer::Viewer* _viewer;
-	osg::Timer mainTimer;
-
-
-};
 
 int main(int argc, char** argv)
 {
@@ -1215,7 +748,6 @@ int main(int argc, char** argv)
 	LoadTXDFile("C:/Games/Grand Theft Auto Vice City/models/MISC.txd");
 	LoadTXDFile("C:/Games/Grand Theft Auto Vice City/models/particle.txd");
 
-
 	/* Load from IDE file only archives textures */
 	std::vector<string> textures;
 	for (int i = 0; i < g_ideFile.size(); i++) {
@@ -1260,13 +792,6 @@ int main(int argc, char** argv)
 		ipl->Load(path);
 		g_ipl.push_back(ipl);
 	}
-
-	
-
-
-	/*gtexture = new osg::Texture2D;
-	gimage = osgDB::readImageFile("texture-test2.bmp");
-	gtexture->setImage(gimage);*/
 
 	for (int i = 0; i < g_ipl.size(); i++) {
 		int count = g_ipl[i]->GetCountObjects();
@@ -1396,15 +921,10 @@ int main(int argc, char** argv)
 	}*/
 
 
-	osgViewer::Viewer viewer;
-	//viewer.setUpViewInWindow(0, 0, 1920, 1080);
-
 	// if the view matrix is invalid (NaN), use the identity
 	// osg::ref_ptr<osg::Camera> camera = viewer.getCamera();
 	// if (camera->getViewMatrix().isNaN())
 	// camera->setViewMatrix(osg::Matrix::identity());
-
-	
 
 	 // Create the first-person camera
 	//osg::ref_ptr<osg::Camera> firstPersonCamera = new osg::Camera();
@@ -1419,17 +939,16 @@ int main(int argc, char** argv)
 	//viewer.setCameraManipulator(new osgGA::FirstPersonManipulator());
 	//viewer.setCameraManipulator(new osgGA::FlightManipulator());
 
-	osgGA::DriveManipulator* dm = new osgGA::DriveManipulator();
-	dm->setHomePosition(osg::Vec3(0,1000,1000),
-		osg::Vec3(0,1000,1000),
-		osg::Vec3(0,1,0)
-	);
+	osgViewer::Viewer viewer;
+	//viewer.setUpViewInWindow(0, 0, 1920, 1080);
 
+	osgGA::DriveManipulator* dm = new osgGA::DriveManipulator();
+	dm->setHomePosition(osg::Vec3(0.0f, 100.0f, 1000.0f),
+		osg::Vec3(0.0f, 10.0f, 10.0f),
+		osg::Vec3(0.0f, 1.0f, 0.0f)
+	);
 	viewer.setCameraManipulator(dm);
 
-	viewer.getCamera()->setProjectionMatrixAsPerspective(45.0f, 1920 / 1080, 1.0f, 400);
-
-	// Add the event handler for WASD controls
 	viewer.addEventHandler(new KeyHandler());
 
 	viewer.getCamera()->setClearColor(osg::Vec4(0.49804f, 0.78431f, 0.94510f, 1.0f));
@@ -1437,12 +956,11 @@ int main(int argc, char** argv)
 
 	printf("[Info] %s loaded\n", PROJECT_NAME);
 	
-	return viewer.run();
+	viewer.realize();
 
-	/* viewer.realize();
 	while (!viewer.done()) {
 		viewer.frame();
 	}
 	
-	return 0; */
+	return 0;
 }
