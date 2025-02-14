@@ -36,7 +36,6 @@
 
 struct GameMaterial {
 	char name[MAX_LENGTH_FILENAME]; /* without extension ".TXD" */
-	uint8_t* source;
 	int size;
 	uint32_t width;
 	uint32_t height;
@@ -44,11 +43,6 @@ struct GameMaterial {
 	uint32_t depth;
 	bool IsAlpha;
 	osg::ref_ptr<osg::Image> image;
-};
-
-struct ModelMaterial {
-	char materialName[MAX_LENGTH_FILENAME];
-	int index;
 };
 
 std::vector<IDE*> g_ideFile;
@@ -288,22 +282,16 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 		
 		osg::ref_ptr<osg::Geode> geode = new osg::Geode;
 
-		std::vector<ModelMaterial> materIndex;
+		std::vector<std::string> materIndex;
 
 		/* Load all materials */
 		uint32_t materials = clump->GetGeometryList()[index]->m_numMaterials;
 		for (uint32_t i = 0; i < materials; i++) {
+
 			Material* material = clump->GetGeometryList()[index]->materialList[i];
+			materIndex.push_back(material->texture.name);
 
-			struct ModelMaterial matInd;
-			std::string b = material->texture.name;
-			memcpy(matInd.materialName, b.c_str(), sizeof(matInd.materialName));
-			matInd.index = i;
-
-			materIndex.push_back(matInd);
 		}
-
-		std::reverse(materIndex.begin(), materIndex.end());
 
 		/*for (uint32_t i = 0; i < clump->GetGeometryList()[index].vertexCount; i++) {
 
@@ -415,60 +403,28 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 			geometry->addPrimitiveSet(indices.get());
 
 
-			// wireframe
-			//osg::ref_ptr<osg::PolygonMode> pm = new osg::PolygonMode;
-			//pm->setMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE);
-			//geometry->getOrCreateStateSet()->setAttribute(pm.get());
+			// Wireframe
+			// osg::ref_ptr<osg::PolygonMode> pm = new osg::PolygonMode;
+			// pm->setMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE);
+			// geometry->getOrCreateStateSet()->setAttribute(pm.get());
 
 
 			uint32_t materialIndex = clump->GetGeometryList()[index]->splits[i].matIndex;
 
 
-			//struct ModelMaterial nq = materIndex[materialIndex];
-
-  	//		int matIndex = -1;
-
-			//// Find texture by index
-			//for (int im = 0; im < g_Textures.size(); im++) {
-			//	if (strcmp(g_Textures[im].name, nq.materialName) == 0) {
-			//		matIndex = im;
-			//		//goto success;
-			//		break;
-			//	}
-			//}
-
 			int matIndex = -1;
 
-			// Find texture by index
-			for (int ib = 0; ib < materIndex.size(); ib++) {
-
-				if (materialIndex == materIndex[ib].index) {
-
-					for (int im = 0; im < g_Textures.size(); im++) {
-						if (strcmp(g_Textures[im].name, materIndex[ib].materialName) == 0) {
-							matIndex = im;
-							break;
-						}
-					}
+			// Find texture
+			for (int im = 0; im < g_Textures.size(); im++) {
+				if (strcmp(g_Textures[im].name, materIndex[materialIndex].c_str()) == 0) {
+					matIndex = im;
 					break;
-
 				}
 			}
-			
-		
 
-			//success:
+			if (matIndex != -1) {
 
-			if (matIndex != -1 
-				//&& 				clump->GetGeometryList()[index]->flags & FLAGS_TEXTURED
-				) {
-				//mesh->SetAlpha(g_Textures[matIndex].IsAlpha);
-
-				//if (g_Textures[matIndex].IsAlpha) {
-					//model->SetAlpha(true);
-				//}
-				
-				osg::Texture2D* texture = new osg::Texture2D;
+				osg::ref_ptr<osg::Texture2D> texture = new osg::Texture2D;
 				texture->setImage(g_Textures[matIndex].image);
 
 				// Set texture wrapping modes
@@ -479,15 +435,12 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 				//texture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
 				//texture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
 
-
-
 				geometry->getOrCreateStateSet()->setTextureAttributeAndModes(0, texture);
 
 				if (g_Textures[matIndex].IsAlpha) {
 					geometry->getStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
 					geometry->getStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
 				}
-
 			}
 			
 			geode->addDrawable(geometry.get());
@@ -503,7 +456,8 @@ osg::ref_ptr<osg::Group> loadDFF(IMG* imgLoader, char *name, int modelId = 0)
 	return root;
 }
 
-osg::ref_ptr<osg::Geometry> createPlane(float width, float height) {
+osg::ref_ptr<osg::Geometry> createPlane(float width, float height)
+{
 	osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry;
 
 	// Define the vertices of the plane (4 vertices, one for each corner)
@@ -676,8 +630,6 @@ public:
 	}
 };
 
-
-
 int main(int argc, char** argv)
 {
 	TCHAR imgPath[] = L"C:/Games/Grand Theft Auto Vice City/models/gta3.img";
@@ -688,7 +640,7 @@ int main(int argc, char** argv)
 
 	char maps[][MAX_LENGTH_FILENAME] = {
 		{ "airport" },
-		{"airportN"},
+		{ "airportN" },
 		{ "bank" },
 		{ "bar" },
 		{ "bridge" },
@@ -836,7 +788,7 @@ int main(int argc, char** argv)
 	pos.setTrans(osg::Vec3(0.0f, 0.0f, 5.0f));
 	arTransformA->setMatrix(pos);
 
-	osg::Texture2D* texture = new osg::Texture2D;
+	osg::ref_ptr<osg::Texture2D> texture = new osg::Texture2D;
 	for (int g = 0; g < g_Textures.size(); g++) {
 		if (strcmp(g_Textures[g].name, "waterclear256") == 0) {
 			texture->setImage(g_Textures[g].image);
@@ -942,7 +894,7 @@ int main(int argc, char** argv)
 	osgViewer::Viewer viewer;
 	//viewer.setUpViewInWindow(0, 0, 1920, 1080);
 
-	osgGA::DriveManipulator* dm = new osgGA::DriveManipulator();
+	osg::ref_ptr<osgGA::DriveManipulator> dm = new osgGA::DriveManipulator();
 	dm->setHomePosition(osg::Vec3(0.0f, 100.0f, 1000.0f),
 		osg::Vec3(0.0f, 10.0f, 10.0f),
 		osg::Vec3(0.0f, 1.0f, 0.0f)
