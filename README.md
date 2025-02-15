@@ -10,11 +10,7 @@ Features:
 2. Set up a project Microsoft Visual Studio 2019 using dependencies
 3. Open `openvice.sln` solution in Microsoft Visual Studio 2019 and click `Build` -> `Build Solution`
 
-## System requirements
-* Windows Vista or higher
-* OpenGL 3.3
-
-## Build OpenSceneGraph
+### Build OpenSceneGraph
 1. Set the following variables ON:
 ```
 OSG_GL3_AVAILABLE
@@ -37,6 +33,10 @@ OSG_GL_VERTEX_FUNCS_AVAILABLE
 ```
 OSG_CONTEXT_VERSION to 3.3
 ```
+
+## System requirements
+* Windows Vista or higher
+* OpenGL 3.3
 
 ## Dependencies
 * [OpenSceneGraph](https://github.com/openscenegraph/OpenSceneGraph)
