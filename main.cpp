@@ -524,35 +524,86 @@ public:
 class CustomFirstPersonManipulator : public osgGA::FirstPersonManipulator
 {
 public:
+	float speed = 1;
+
 	CustomFirstPersonManipulator() : osgGA::FirstPersonManipulator()
 	{
 	
 	}
 
-	virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us) override {
+	virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us) override
+	{
+		osgViewer::Viewer* viewer = dynamic_cast<osgViewer::Viewer*>(&us);
+		if (!viewer) return false;
+
+		//if (ea.getKey() == ea.KEY_Shift_L) {
+		//	speed = 10;
+		//}
+
 		switch (ea.getEventType()) {
-		case osgGA::GUIEventAdapter::KEYDOWN:
+		/*case osgGA::GUIEventAdapter::KEYUP:
 			switch (ea.getKey()) {
-			case 'w': // Move forward
-				printf("KEYDOWN W \n");
-				moveForward();
-				return true;
-			case 's': // Move backward
-				moveBackward();
-				return true;
-			case 'a': // Move left
-				moveLeft();
-				return true;
-			case 'd': // Move right
-				moveRight();
-				return true;
+			case ea.KEY_Shift_L:
+				speed = 1;
+			}*/
+			case osgGA::GUIEventAdapter::KEYDOWN:
+			{
+				printf("key = %d hex = 0x%08x \n", ea.getKey(), ea.getKey());
+				if (ea.getKey() == 87) {
+					speed = 10.0;  // Speed up when SHIFT is held
+					moveForward();
+					printf("87 \n");
+				}
+
+				if (ea.getKey() == (osgGA::GUIEventAdapter::MODKEY_SHIFT | ea.KEY_W)) {
+					speed = 10.0;  // Speed up when SHIFT is held
+					moveForward();
+					printf("| \n");
+				}
+
+				if (ea.getKey() == (osgGA::GUIEventAdapter::MODKEY_SHIFT && ea.KEY_W)) {
+					speed = 10.0;  // Speed up when SHIFT is held
+					moveForward();
+					printf("&& \n");
+				}
+				if (ea.getKey() == (osgGA::GUIEventAdapter::MODKEY_SHIFT || ea.KEY_W)) {
+					speed = 10.0;  // Speed up when SHIFT is held
+					moveForward();
+					printf("|| \n");
+				}
+				if (ea.getKey() == (osgGA::GUIEventAdapter::MODKEY_SHIFT)) {
+					speed = 10.0;  // Speed up when SHIFT is held
+					moveForward();
+					printf("MODKEY_SHIFT \n");
+				}
+				if (ea.getKey() == (osgGA::GUIEventAdapter::MODKEY_SHIFT & ea.KEY_W)) {
+					speed = 10.0;  // Speed up when SHIFT is held
+					moveForward();
+					printf("MODKEY_SHIFT & ea.KEY_W \n");
+				}
+				if (ea.getKey() == (osgGA::GUIEventAdapter::KEY_Shift_L)) {
+					speed = 10.0;  // Speed up when SHIFT is held
+					moveForward();
+					printf("KEY_Shift_L \n");
+				}
+				if (ea.getKey() == ea.KEY_W) {
+					moveForward();
+					printf("ea.KEY_W \n");
+				}
+				if (ea.getKey() == ea.KEY_S) {
+					moveBackward();
+				}				
+				break;
 			}
-			break;
-		default:
-			break;
+			case osgGA::GUIEventAdapter::KEYUP:
+			{
+				break;
+			}
 		}
+
 		return osgGA::FirstPersonManipulator::handle(ea, us);
 	}
+
 	void setViewer(osgViewer::Viewer* _viewer)
 	{
 		viewer = _viewer;
@@ -570,26 +621,32 @@ private:
 		osg::Matrix view = viewer->getCamera()->getViewMatrix();
 		view.getLookAt(eye, centre, up);
 
-		//osg::Vec3d direction = viewer->getCamera()->getViewMatrix();
-		//direction.normalize();
-		//setByMatrix(getMatrix() * osg::Matrix::translate(direction * 0.1)); // Adjust speed as needed
+		osg::Vec3f actuallook = centre - eye;
+
+		actuallook = actuallook / (actuallook.length());
+
+		eye = eye + ((actuallook) * speed);
+		centre = centre + ((actuallook) * speed);
+
+		setTransformation(eye, centre, osg::Z_AXIS);
+
+		speed = 1;
+	}
+
+	void moveBackward() {
+		osg::Matrix view = viewer->getCamera()->getViewMatrix();
+		view.getLookAt(eye, centre, up);
 
 		osg::Vec3f actuallook = centre - eye;
 
 		actuallook = actuallook / (actuallook.length());
 
-		eye = eye + ((actuallook) * 10);
-		centre = centre + ((actuallook) * 10);
-
-		//viewer->getCamera()->setViewMatrixAsLookAt(eye, centre, osg::Z_AXIS);
+		eye = eye + ((actuallook) * -speed);
+		centre = centre + ((actuallook) * -speed);
 
 		setTransformation(eye, centre, osg::Z_AXIS);
-	}
 
-	void moveBackward() {
-		//osg::Vec3d direction = getViewMatrixAsLookAt().getLookAt() - getViewMatrixAsLookAt().getEye();
-		//direction.normalize();
-		//setByMatrix(getMatrix() * osg::Matrix::translate(-direction * 0.1)); // Adjust speed as needed
+		speed = 1;
 	}
 
 	void moveLeft() {
@@ -924,8 +981,10 @@ int main(int argc, char** argv)
 	//viewer.setCameraManipulator(new osgGA::FlightManipulator());
 
 	osgViewer::Viewer viewer;
-	//viewer.setUpViewInWindow(0, 0, 1920, 1080);
-
+	viewer.setUpViewInWindow(0, 0, 1920, 1080);
+	viewer.getCamera()->setClearColor(osg::Vec4(0.49804f, 0.78431f, 0.94510f, 1.0f));
+	viewer.getCamera()->setProjectionMatrixAsPerspective(90.0f, 1920 / 1080, 0.1f, 1000.0f);
+	
 	osg::ref_ptr<CustomFirstPersonManipulator> dm = new CustomFirstPersonManipulator();
 	dm->setViewer(&viewer);
 	osg::Vec3d eye(0.0, 0.0, 200.0);
@@ -933,17 +992,16 @@ int main(int argc, char** argv)
 	osg::Vec3d up = osg::Z_AXIS;
 	dm->setHomePosition(eye, center, up);
 	viewer.setCameraManipulator(dm);
-
-	// viewer.addEventHandler(new KeyHandler());
-
-	viewer.getCamera()->setClearColor(osg::Vec4(0.49804f, 0.78431f, 0.94510f, 1.0f));
-	viewer.getCamera()->setProjectionMatrixAsPerspective(90.0f, 3840 / 2160, 0.1f, 1000.0f);
-	
-	viewer.getCamera()->setComputeNearFarMode(osg::CullSettings::COMPUTE_NEAR_FAR_USING_BOUNDING_VOLUMES);
-
 	//viewer.getCamera()->setViewMatrixAsLookAt(eye, center, up);
 
+	// viewer.addEventHandler(new KeyHandler());
+	
+	viewer.getCamera()->setComputeNearFarMode(osg::CullSettings::COMPUTE_NEAR_FAR_USING_BOUNDING_VOLUMES);
+	// Turn on FSAA, makes the lines look better.
+	
 	viewer.setSceneData(root);
+
+	osg::DisplaySettings::instance()->setNumMultiSamples(4);
 
 	printf("[Info] %s loaded\n", PROJECT_NAME);
 	
